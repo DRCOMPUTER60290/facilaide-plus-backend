@@ -119,19 +119,12 @@ export function buildOpenFiscaPayload(rawJson) {
     }
   };
 
-  // Assemble le payload final au format OpenFisca "scenarios"
+  // Retourner le payload plat attendu par OpenFisca
   const payload = {
-    scenarios: [
-      {
-        scenario: {
-          individus,
-          familles,
-          foyers_fiscaux,
-          menages,
-          simulateur: {}
-        }
-      }
-    ]
+    individus,
+    familles,
+    foyers_fiscaux,
+    menages
   };
 
   return payload;
