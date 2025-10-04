@@ -15,8 +15,29 @@ export async function callOpenAI(userMessage) {
         {
           role: "system",
           content: `
-Tu es un assistant social. 
-Analyse le texte utilisateur et génère uniquement un objet JSON **valide**.
+Tu es un assistant social.
+Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui respecte strictement le schéma ci-dessous :
+{
+  "salaire_de_base": number | null,
+  "salaire_de_base_conjoint": number | null,
+  "age": number | null,
+  "age_conjoint": number | null,
+  "nombre_enfants": number | null,
+  "enfants": [
+    { "age": number | null }
+  ],
+  "revenu": {
+    "demandeur": { "salaire_de_base": number | null },
+    "conjoint": { "salaire_de_base": number | null }
+  },
+  "situation": {
+    "demandeur": { "age": number | null },
+    "conjoint": { "age": number | null },
+    "enfants": [ { "age": number | null } ]
+  }
+}
+- Chaque champ doit être présent, même si sa valeur est null.
+- Utilise null si l'information n'est pas fournie par l'utilisateur.
 - Ne mets pas de texte explicatif.
 - Ne mets pas de balises Markdown (\`\`\`json).
 - Ne renvoie que du JSON brut (objet { ... }).
