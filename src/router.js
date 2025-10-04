@@ -34,13 +34,13 @@ router.post("/simulate", async (req, res) => {
     const { rawJson } = req.body;
 
     // Transformer avec openfiscaVariablesMeta.json
-    const payload = buildOpenFiscaPayload(rawJson);
+    const { individus, familles, foyers_fiscaux, menages } = buildOpenFiscaPayload(rawJson);
 
-    // Ajouter automatiquement les aides à calculer
-    payload.simulateur = {
-      familles: ["rsa", "aide_logement", "af"],
-      individus: ["aah"],
-      menages: []
+    const payload = {
+      individus,
+      familles,
+      foyers_fiscaux,
+      menages
     };
 
     // Envoi à OpenFisca

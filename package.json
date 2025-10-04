@@ -9,6 +9,7 @@
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
+    "ajv": "^8.17.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
