@@ -34,6 +34,22 @@ export function buildOpenFiscaPayload(rawJson) {
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const currentYear = `${now.getFullYear()}`;
 
+  const monthVariables = new Set(
+    Object.entries(variablesMeta)
+      .filter(([, meta]) => meta?.periodicity === "month")
+      .map(([name]) => name)
+  );
+
+  const createPeriodValues = (variableName, value) => {
+    const periodicity = variablesMeta?.[variableName]?.periodicity;
+
+    if (periodicity === "year") {
+      return { [currentYear]: value };
+    }
+
+    return { [currentMonth]: value };
+  };
+
   // Récupérer les données utilisateur
   const salaire1 = rawJson.salaire_de_base || 0;
   const salaire2 = rawJson.salaire_de_base_conjoint || 0;
@@ -44,12 +60,12 @@ export function buildOpenFiscaPayload(rawJson) {
   // Construire les individus
   const individus = {
     individu_1: {
-      salaire_de_base: { [currentYear]: salaire1 },
-      age: { [currentMonth]: age1 }
+      salaire_de_base: createPeriodValues("salaire_de_base", salaire1),
+      age: createPeriodValues("age", age1)
     },
     individu_2: {
-      salaire_de_base: { [currentYear]: salaire2 },
-      age: { [currentMonth]: age2 }
+      salaire_de_base: createPeriodValues("salaire_de_base", salaire2),
+      age: createPeriodValues("age", age2)
     }
   };
 
@@ -57,8 +73,25 @@ export function buildOpenFiscaPayload(rawJson) {
   for (let i = 1; i <= nbEnfants; i++) {
     const ageEnfant = rawJson[`age_enfant_${i}`] || 5;
     individus[`enfant_${i}`] = {
-      age: { [currentMonth]: ageEnfant }
+      age: createPeriodValues("age", ageEnfant)
     };
+  }
+
+  if (monthVariables.size > 0) {
+    Object.values(individus).forEach((individu) => {
+      Object.entries(individu).forEach(([variableName, periodValues]) => {
+        if (
+          monthVariables.has(variableName) &&
+          periodValues &&
+          typeof periodValues === "object" &&
+          Object.prototype.hasOwnProperty.call(periodValues, currentYear)
+        ) {
+          throw new Error(
+            `La variable "${variableName}" est mensuelle et ne doit pas être indexée avec currentYear.`
+          );
+        }
+      });
+    });
   }
 
   // Construire familles, menages et foyers fiscaux
