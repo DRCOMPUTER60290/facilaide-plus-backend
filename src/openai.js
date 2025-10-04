@@ -28,14 +28,22 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
   "enfants": [
     { "age": number | null }
   ],
-  "prestations": {
-    "demandeur": {
-      "aah": number | null // Utiliser ce champ pour la prestation AAH du demandeur, ne pas y placer de salaire
-    },
-    "conjoint": {
-      "aah": number | null // Utiliser ce champ pour la prestation AAH du conjoint, ne pas y placer de salaire
+  "prestations_recues": [
+    {
+      "beneficiaire": "demandeur" | "conjoint" | "menage", // Qui perçoit déjà l'aide
+      "nom": string, // Exemples : "aah", "rsa", "aide_logement", "af"
+      "montant": number | null, // Montant versé si précisé
+      "commentaire": string | null // Informations complémentaires éventuelles
     }
-  },
+  ],
+  "prestations_a_demander": [
+    {
+      "beneficiaire": "demandeur" | "conjoint" | "menage", // Qui souhaite déposer une demande
+      "nom": string,
+      "montant": number | null,
+      "commentaire": string | null
+    }
+  ],
   "revenu": {
     "demandeur": { "salaire_de_base": number | null },
     "conjoint": { "salaire_de_base": number | null }
@@ -46,6 +54,7 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
     "enfants": [ { "age": number | null } ]
   }
 }
+- Utilise impérativement "prestations_recues" pour les aides déjà perçues et "prestations_a_demander" pour celles seulement envisagées.
 - Chaque champ doit être présent, même si sa valeur est null.
 - Utilise null si l'information n'est pas fournie par l'utilisateur.
 - Ne mets pas de texte explicatif.
