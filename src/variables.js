@@ -235,6 +235,41 @@ function normalizeUserInput(rawJson = {}) {
     ])
   );
 
+  const rawAahDemandeur = getValueByPaths(source, [
+    ["aah"],
+    ["prestations", "aah"],
+    ["prestations", "demandeur", "aah"],
+    ["prestations", "demandeur", "montant_aah"],
+    ["prestations", "demandeur", "allocation_adulte_handicapee"],
+    ["prestations", "demandeur", "allocation_aux_adultes_handicapes"],
+    ["prestations_demandeur", "aah"],
+    ["prestations_demandeur", "allocation_adulte_handicapee"],
+    ["revenu", "demandeur", "aah"],
+    ["revenus", "demandeur", "aah"],
+    ["demandeur", "prestations", "aah"],
+    ["demandeur", "aah"],
+    ["personnes", "demandeur", "aah"]
+  ]);
+
+  const rawAahConjoint = getValueByPaths(source, [
+    ["aah_conjoint"],
+    ["prestations", "aah_conjoint"],
+    ["prestations", "conjoint", "aah"],
+    ["prestations", "conjoint", "montant_aah"],
+    ["prestations", "conjoint", "allocation_adulte_handicapee"],
+    ["prestations", "conjoint", "allocation_aux_adultes_handicapes"],
+    ["prestations_conjoint", "aah"],
+    ["prestations_conjoint", "allocation_adulte_handicapee"],
+    ["revenu", "conjoint", "aah"],
+    ["revenus", "conjoint", "aah"],
+    ["conjoint", "prestations", "aah"],
+    ["conjoint", "aah"],
+    ["personnes", "conjoint", "aah"]
+  ]);
+
+  const aahDemandeur = toNumber(rawAahDemandeur);
+  const aahConjoint = toNumber(rawAahConjoint);
+
   const ageDemandeur = toNumber(
     getValueByPaths(source, [
       ["age"],
@@ -331,6 +366,8 @@ function normalizeUserInput(rawJson = {}) {
   return {
     salaire_de_base: salaireDemandeur ?? 0,
     salaire_de_base_conjoint: salaireConjoint ?? 0,
+    aah: aahDemandeur ?? null,
+    aah_conjoint: aahConjoint ?? null,
     age: ageDemandeur ?? 30,
     age_conjoint: ageConjoint ?? 30,
     nombre_enfants: nombreEnfants,
@@ -366,6 +403,8 @@ export function buildOpenFiscaPayload(rawJson) {
   // Récupérer les données utilisateur
   const salaire1 = normalized.salaire_de_base;
   const salaire2 = normalized.salaire_de_base_conjoint;
+  const aah1 = normalized.aah;
+  const aah2 = normalized.aah_conjoint;
   const age1 = normalized.age;
   const age2 = normalized.age_conjoint;
   const nbEnfants = normalized.nombre_enfants || 0;
@@ -376,12 +415,12 @@ export function buildOpenFiscaPayload(rawJson) {
     individu_1: {
       salaire_de_base: createPeriodValues("salaire_de_base", salaire1),
       age: createPeriodValues("age", age1),
-      aah: createPeriodValues("aah", null)
+      aah: createPeriodValues("aah", aah1 ?? null)
     },
     individu_2: {
       salaire_de_base: createPeriodValues("salaire_de_base", salaire2),
       age: createPeriodValues("age", age2),
-      aah: createPeriodValues("aah", null)
+      aah: createPeriodValues("aah", aah2 ?? null)
     }
   };
 

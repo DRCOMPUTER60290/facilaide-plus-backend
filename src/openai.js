@@ -20,12 +20,22 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
 {
   "salaire_de_base": number | null,
   "salaire_de_base_conjoint": number | null,
+  "aah": number | null, // Allocation aux adultes handicapés du demandeur (prestation sociale, distincte d'un salaire)
+  "aah_conjoint": number | null, // Allocation aux adultes handicapés du conjoint (prestation sociale, distincte d'un salaire)
   "age": number | null,
   "age_conjoint": number | null,
   "nombre_enfants": number | null,
   "enfants": [
     { "age": number | null }
   ],
+  "prestations": {
+    "demandeur": {
+      "aah": number | null // Utiliser ce champ pour la prestation AAH du demandeur, ne pas y placer de salaire
+    },
+    "conjoint": {
+      "aah": number | null // Utiliser ce champ pour la prestation AAH du conjoint, ne pas y placer de salaire
+    }
+  },
   "revenu": {
     "demandeur": { "salaire_de_base": number | null },
     "conjoint": { "salaire_de_base": number | null }
