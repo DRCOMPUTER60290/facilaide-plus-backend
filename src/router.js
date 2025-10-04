@@ -36,8 +36,15 @@ router.post("/simulate", async (req, res) => {
     // Transformer avec openfiscaVariablesMeta.json
     const payload = buildOpenFiscaPayload(rawJson);
 
+    const scenarioWrapper = payload?.scenarios?.[0];
+    const scenario = scenarioWrapper?.scenario;
+
+    if (!scenario) {
+      throw new Error("Payload OpenFisca invalide: scenario manquant");
+    }
+
     // Ajouter automatiquement les aides à calculer
-    payload.simulateur = {
+    scenario.simulateur = {
       familles: ["rsa", "aide_logement", "af"],
       individus: ["aah"],
       menages: []
