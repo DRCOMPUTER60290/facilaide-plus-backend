@@ -203,8 +203,359 @@ function extractChildAgesFromValue(value) {
   return ages;
 }
 
+const BENEFIT_NAME_ALIASES = {
+  aah: [
+    "aah",
+    "allocation adulte handicapee",
+    "allocation adulte handicapée",
+    "allocation aux adultes handicapes",
+    "allocation aux adultes handicapés"
+  ],
+  rsa: [
+    "rsa",
+    "revenu de solidarite active",
+    "revenu de solidarité active"
+  ],
+  aide_logement: [
+    "aide au logement",
+    "aide logement",
+    "allocation logement",
+    "apl",
+    "aide_logement",
+    "aides au logement"
+  ],
+  af: [
+    "allocations familiales",
+    "allocation familiale",
+    "af"
+  ]
+};
+
+const BENEFICIARY_ALIASES = {
+  demandeur: [
+    "demandeur",
+    "demandeuse",
+    "applicant",
+    "individu 1",
+    "individu1",
+    "titulaire",
+    "moi",
+    "adulte 1",
+    "personne 1",
+    "beneficiaire principal",
+    "bénéficiaire principal"
+  ],
+  conjoint: [
+    "conjoint",
+    "conjointe",
+    "epoux",
+    "époux",
+    "epouse",
+    "épouse",
+    "partenaire",
+    "individu 2",
+    "individu2",
+    "adulte 2",
+    "personne 2",
+    "compagnon",
+    "compagne"
+  ],
+  menage: [
+    "menage",
+    "ménage",
+    "household",
+    "famille",
+    "famille 1",
+    "foyer",
+    "foyer familial",
+    "couple",
+    "nous",
+    "menage 1",
+    "ménage 1"
+  ]
+};
+
+function normalizeTextForMatching(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  return value
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function matchAlias(aliases, value) {
+  const normalized = normalizeTextForMatching(value);
+  if (!normalized) {
+    return null;
+  }
+
+  for (const [canonical, variants] of Object.entries(aliases)) {
+    if (normalized === canonical) {
+      return canonical;
+    }
+    if (variants.includes(normalized)) {
+      return canonical;
+    }
+  }
+
+  return null;
+}
+
+function normalizeBeneficiary(value) {
+  return matchAlias(BENEFICIARY_ALIASES, value);
+}
+
+function normalizeBenefitName(value) {
+  return matchAlias(BENEFIT_NAME_ALIASES, value);
+}
+
+function looksLikePrestationItem(value) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const keys = Object.keys(value);
+  return ["nom", "name", "prestation", "type", "benefit"].some((key) =>
+    keys.includes(key)
+  ) ||
+    [
+      "beneficiaire",
+      "beneficiary",
+      "personne",
+      "personne_concernee",
+      "cible",
+      "beneficiaire_principal"
+    ].some((key) => keys.includes(key)) ||
+    ["montant", "amount", "valeur", "value", "quantite", "somme", "montants"].some(
+      (key) => keys.includes(key)
+    );
+}
+
+function createEmptyPrestationsContainer() {
+  return {
+    demandeur: {},
+    conjoint: {},
+    menage: {}
+  };
+}
+
+function registerPrestation(container, beneficiary, benefit, amount) {
+  if (!beneficiary || !benefit) {
+    return;
+  }
+
+  if (!container[beneficiary]) {
+    container[beneficiary] = {};
+  }
+
+  container[beneficiary][benefit] = {
+    mentionnee: true,
+    montant: amount === undefined ? null : amount
+  };
+}
+
+function buildPrestationEntryFromObject(item, context) {
+  if (!item || typeof item !== "object") {
+    return null;
+  }
+
+  const rawBeneficiary =
+    item.beneficiaire ??
+    item.beneficiary ??
+    item.personne ??
+    item.personne_concernee ??
+    item.cible ??
+    item.beneficiaire_principal ??
+    context.beneficiary;
+  const beneficiary = normalizeBeneficiary(rawBeneficiary);
+
+  const rawBenefit =
+    item.nom ??
+    item.name ??
+    item.prestation ??
+    item.prestation_nom ??
+    item.type ??
+    item.benefit ??
+    context.benefit;
+  const benefit = normalizeBenefitName(rawBenefit);
+
+  if (!beneficiary || !benefit) {
+    return null;
+  }
+
+  const rawAmount =
+    item.montant ??
+    item.amount ??
+    item.valeur ??
+    item.value ??
+    item.quantite ??
+    item.somme ??
+    item.montants;
+  const amount = toNumber(rawAmount);
+
+  return {
+    beneficiary,
+    benefit,
+    amount: amount ?? null
+  };
+}
+
+function traversePrestationsValue(value, context, entries) {
+  if (value === undefined || value === null) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => traversePrestationsValue(item, context, entries));
+    return;
+  }
+
+  if (typeof value === "object") {
+    if (looksLikePrestationItem(value)) {
+      const entry = buildPrestationEntryFromObject(value, context);
+      if (entry) {
+        entries.push(entry);
+      }
+      return;
+    }
+
+    Object.entries(value).forEach(([key, child]) => {
+      const beneficiaryCandidate = normalizeBeneficiary(key);
+      const benefitCandidate = normalizeBenefitName(key);
+      const nextContext = { ...context };
+      if (beneficiaryCandidate && !nextContext.beneficiary) {
+        nextContext.beneficiary = beneficiaryCandidate;
+      } else if (benefitCandidate && !nextContext.benefit) {
+        nextContext.benefit = benefitCandidate;
+      }
+      traversePrestationsValue(child, nextContext, entries);
+    });
+    return;
+  }
+
+  if (
+    (typeof value === "number" || typeof value === "string") &&
+    context.beneficiary &&
+    context.benefit
+  ) {
+    const amount = toNumber(value);
+    entries.push({
+      beneficiary: context.beneficiary,
+      benefit: context.benefit,
+      amount: amount ?? null
+    });
+  }
+}
+
+function collectPrestations(value) {
+  const entries = [];
+  traversePrestationsValue(value, {}, entries);
+  return entries;
+}
+
+function extractPrestations(source, paths) {
+  const entries = [];
+  const seenKeys = new Set();
+
+  paths.forEach((path) => {
+    const value = getNestedValue(source, path);
+    if (value !== undefined && value !== null) {
+      collectPrestations(value).forEach((entry) => {
+        const key = `${entry.beneficiary}::${entry.benefit}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          entries.push(entry);
+        }
+      });
+    }
+  });
+
+  return entries;
+}
+
+function buildPrestationsContainerFromEntries(entries) {
+  const container = createEmptyPrestationsContainer();
+  entries.forEach(({ beneficiary, benefit, amount }) => {
+    registerPrestation(container, beneficiary, benefit, amount);
+  });
+  return container;
+}
+
+function getPrestationEntry(container, beneficiary, benefit) {
+  if (!container || !beneficiary || !benefit) {
+    return undefined;
+  }
+
+  const data = container[beneficiary]?.[benefit];
+  if (data === undefined) {
+    return undefined;
+  }
+
+  if (data && typeof data === "object") {
+    const montant = Object.prototype.hasOwnProperty.call(data, "montant")
+      ? data.montant
+      : undefined;
+    const mentionnee = Object.prototype.hasOwnProperty.call(data, "mentionnee")
+      ? data.mentionnee
+      : true;
+    return {
+      mentionnee,
+      montant: montant === undefined ? null : montant
+    };
+  }
+
+  if (typeof data === "number" || data === null) {
+    return {
+      mentionnee: true,
+      montant: data
+    };
+  }
+
+  return undefined;
+}
+
+function getPrestationPayloadAmount(entry) {
+  if (!entry) {
+    return null;
+  }
+
+  return entry.montant === undefined || entry.montant === null
+    ? 0
+    : entry.montant;
+}
+
 function normalizeUserInput(rawJson = {}) {
   const source = rawJson && typeof rawJson === "object" ? rawJson : {};
+
+  const prestationsRecuesEntries = extractPrestations(source, [
+    ["prestations_recues"],
+    ["prestations", "recues"],
+    ["prestations", "perçues"],
+    ["prestations", "percues"],
+    ["aides", "recues"]
+  ]);
+
+  const prestationsRecues = buildPrestationsContainerFromEntries(
+    prestationsRecuesEntries
+  );
+
+  const prestationsADemanderEntries = extractPrestations(source, [
+    ["prestations_a_demander"],
+    ["prestations", "a_demander"],
+    ["prestations", "souhaitees"],
+    ["prestations", "souhaitées"],
+    ["aides", "a_demander"]
+  ]);
+
+  const prestationsADemander = buildPrestationsContainerFromEntries(
+    prestationsADemanderEntries
+  );
 
   const salaireDemandeur = toNumber(
     getValueByPaths(source, [
@@ -267,8 +618,47 @@ function normalizeUserInput(rawJson = {}) {
     ["personnes", "conjoint", "aah"]
   ]);
 
-  const aahDemandeur = toNumber(rawAahDemandeur);
-  const aahConjoint = toNumber(rawAahConjoint);
+  let aahDemandeur = null;
+  const recuAahDemandeurEntry = getPrestationEntry(
+    prestationsRecues,
+    "demandeur",
+    "aah"
+  );
+  if (recuAahDemandeurEntry) {
+    aahDemandeur = getPrestationPayloadAmount(recuAahDemandeurEntry);
+  } else {
+    const parsedAahDemandeur = toNumber(rawAahDemandeur);
+    if (parsedAahDemandeur !== undefined) {
+      aahDemandeur = parsedAahDemandeur;
+      registerPrestation(
+        prestationsRecues,
+        "demandeur",
+        "aah",
+        parsedAahDemandeur
+      );
+    }
+  }
+
+  let aahConjoint = null;
+  const recuAahConjointEntry = getPrestationEntry(
+    prestationsRecues,
+    "conjoint",
+    "aah"
+  );
+  if (recuAahConjointEntry) {
+    aahConjoint = getPrestationPayloadAmount(recuAahConjointEntry);
+  } else {
+    const parsedAahConjoint = toNumber(rawAahConjoint);
+    if (parsedAahConjoint !== undefined) {
+      aahConjoint = parsedAahConjoint;
+      registerPrestation(
+        prestationsRecues,
+        "conjoint",
+        "aah",
+        parsedAahConjoint
+      );
+    }
+  }
 
   const ageDemandeur = toNumber(
     getValueByPaths(source, [
@@ -371,7 +761,9 @@ function normalizeUserInput(rawJson = {}) {
     age: ageDemandeur ?? 30,
     age_conjoint: ageConjoint ?? 30,
     nombre_enfants: nombreEnfants,
-    enfants: enfantsAges
+    enfants: enfantsAges,
+    prestations_recues: prestationsRecues,
+    prestations_a_demander: prestationsADemander
   };
 }
 
@@ -392,19 +784,31 @@ export function buildOpenFiscaPayload(rawJson) {
 
   const createPeriodValues = (variableName, value) => {
     const periodicity = variablesMeta?.[variableName]?.periodicity;
+    const safeValue = value === undefined ? null : value;
 
     if (periodicity === "year") {
-      return { [currentYear]: value };
+      return { [currentYear]: safeValue };
     }
 
-    return { [currentMonth]: value };
+    return { [currentMonth]: safeValue };
   };
+
+  const prestationsRecues =
+    normalized.prestations_recues || createEmptyPrestationsContainer();
 
   // Récupérer les données utilisateur
   const salaire1 = normalized.salaire_de_base;
   const salaire2 = normalized.salaire_de_base_conjoint;
-  const aah1 = normalized.aah;
-  const aah2 = normalized.aah_conjoint;
+  const recuAah1 = getPrestationEntry(prestationsRecues, "demandeur", "aah");
+  const recuAah2 = getPrestationEntry(prestationsRecues, "conjoint", "aah");
+  const aah1 =
+    recuAah1 && recuAah1.mentionnee
+      ? getPrestationPayloadAmount(recuAah1)
+      : normalized.aah;
+  const aah2 =
+    recuAah2 && recuAah2.mentionnee
+      ? getPrestationPayloadAmount(recuAah2)
+      : normalized.aah_conjoint;
   const age1 = normalized.age;
   const age2 = normalized.age_conjoint;
   const nbEnfants = normalized.nombre_enfants || 0;
@@ -452,13 +856,34 @@ export function buildOpenFiscaPayload(rawJson) {
   // Construire familles, menages et foyers fiscaux
   const enfantsIds = Array.from({ length: nbEnfants }, (_, i) => `enfant_${i + 1}`);
 
+  const rsaEntry = getPrestationEntry(prestationsRecues, "menage", "rsa");
+  const aideLogementEntry = getPrestationEntry(
+    prestationsRecues,
+    "menage",
+    "aide_logement"
+  );
+  const afEntry = getPrestationEntry(prestationsRecues, "menage", "af");
+
   const familles = {
     famille_1: {
       parents: ["individu_1", "individu_2"],
       enfants: enfantsIds,
-      rsa: createPeriodValues("rsa", null),
-      aide_logement: createPeriodValues("aide_logement", null),
-      af: createPeriodValues("af", null)
+      rsa: createPeriodValues(
+        "rsa",
+        rsaEntry && rsaEntry.mentionnee
+          ? getPrestationPayloadAmount(rsaEntry)
+          : null
+      ),
+      aide_logement: createPeriodValues(
+        "aide_logement",
+        aideLogementEntry && aideLogementEntry.mentionnee
+          ? getPrestationPayloadAmount(aideLogementEntry)
+          : null
+      ),
+      af: createPeriodValues(
+        "af",
+        afEntry && afEntry.mentionnee ? getPrestationPayloadAmount(afEntry) : null
+      )
     }
   };
 
