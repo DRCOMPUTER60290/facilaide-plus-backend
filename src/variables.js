@@ -203,6 +203,27 @@ function extractChildAgesFromValue(value) {
   return ages;
 }
 
+function stableStringify(value) {
+  if (value === null || value === undefined) {
+    return JSON.stringify(value);
+  }
+
+  if (typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    const serializedItems = value.map((item) => stableStringify(item));
+    return `[${serializedItems.join(",")}]`;
+  }
+
+  const keys = Object.keys(value).sort();
+  const serializedEntries = keys.map(
+    (key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`
+  );
+  return `{${serializedEntries.join(",")}}`;
+}
+
 const BENEFIT_NAME_ALIASES = {
   aah: [
     "aah",
@@ -697,14 +718,35 @@ function normalizeUserInput(rawJson = {}) {
   };
 
   const seenChildContainers = new WeakSet();
+  const seenChildSignatures = new Set();
   childPaths.forEach((path) => {
     const value = getNestedValue(source, path);
-    if (value && typeof value === "object") {
+    if (value === undefined || value === null) {
+      return;
+    }
+
+    if (typeof value === "object") {
       if (seenChildContainers.has(value)) {
         return;
       }
       seenChildContainers.add(value);
     }
+
+    let signature = null;
+    try {
+      signature = stableStringify(value);
+    } catch (error) {
+      signature = null;
+    }
+
+    if (signature && seenChildSignatures.has(signature)) {
+      return;
+    }
+
+    if (signature) {
+      seenChildSignatures.add(signature);
+    }
+
     extractChildAgesFromValue(value).forEach(pushChildAge);
   });
 
@@ -734,8 +776,14 @@ function normalizeUserInput(rawJson = {}) {
     ])
   );
 
-  let nombreEnfants =
-    nombreEnfantsValeur !== undefined ? Math.max(0, Math.round(nombreEnfantsValeur)) : undefined;
+  let nombreEnfants;
+  if (
+    nombreEnfantsValeur !== undefined &&
+    Number.isFinite(nombreEnfantsValeur) &&
+    !Number.isNaN(nombreEnfantsValeur)
+  ) {
+    nombreEnfants = Math.max(0, Math.round(nombreEnfantsValeur));
+  }
 
   if (nombreEnfants === undefined) {
     nombreEnfants = enfantsAges.length;
@@ -746,7 +794,7 @@ function normalizeUserInput(rawJson = {}) {
   }
 
   if (enfantsAges.length > nombreEnfants) {
-    nombreEnfants = enfantsAges.length;
+    enfantsAges.splice(nombreEnfants);
   }
 
   while (enfantsAges.length < nombreEnfants) {
