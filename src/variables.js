@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import Ajv from "ajv";
 
 // Charger le fichier meta (au cas où on en a besoin plus tard)
 const filePath = path.resolve("openfiscaVariablesMeta.json");
@@ -8,6 +9,78 @@ try {
   variablesMeta = JSON.parse(fs.readFileSync(filePath, "utf-8"));
 } catch (e) {
   console.warn("⚠️ Impossible de charger openfiscaVariablesMeta.json, on utilisera des règles simplifiées.");
+}
+
+function allowNullInAdditionalProperties(schemaNode, insideAdditionalProps = false) {
+  if (!schemaNode || typeof schemaNode !== "object") {
+    return;
+  }
+
+  const ensureNullType = () => {
+    if (Array.isArray(schemaNode.type)) {
+      if (!schemaNode.type.includes("null")) {
+        schemaNode.type = [...schemaNode.type, "null"];
+      }
+    } else if (schemaNode.type === "number") {
+      schemaNode.type = ["number", "null"];
+    }
+  };
+
+  if (insideAdditionalProps) {
+    ensureNullType();
+  }
+
+  if (schemaNode.additionalProperties) {
+    allowNullInAdditionalProperties(schemaNode.additionalProperties, true);
+  }
+
+  if (schemaNode.properties) {
+    Object.values(schemaNode.properties).forEach((child) =>
+      allowNullInAdditionalProperties(child, false)
+    );
+  }
+
+  if (schemaNode.items) {
+    allowNullInAdditionalProperties(schemaNode.items, false);
+  }
+
+  ["anyOf", "allOf", "oneOf"].forEach((keyword) => {
+    if (Array.isArray(schemaNode[keyword])) {
+      schemaNode[keyword].forEach((child) =>
+        allowNullInAdditionalProperties(child, insideAdditionalProps)
+      );
+    }
+  });
+}
+
+const specPath = path.resolve("specopenfisca.json");
+let validateSituationInput = null;
+
+try {
+  const spec = JSON.parse(fs.readFileSync(specPath, "utf-8"));
+  const schemas = spec?.components?.schemas || {};
+
+  if (Object.keys(schemas).length > 0) {
+    const ajv = new Ajv({ allErrors: true, strict: false });
+
+    Object.entries(schemas).forEach(([name, schema]) => {
+      const schemaCopy = { ...schema };
+      allowNullInAdditionalProperties(schemaCopy, false);
+      if (!schemaCopy.$id) {
+        schemaCopy.$id = `#/components/schemas/${name}`;
+      }
+      ajv.addSchema(schemaCopy);
+    });
+
+    validateSituationInput =
+      ajv.getSchema("#/components/schemas/SituationInput") ||
+      ajv.compile({ $ref: "#/components/schemas/SituationInput" });
+  }
+} catch (error) {
+  console.warn(
+    "⚠️ Impossible de préparer la validation SituationInput depuis specopenfisca.json. La validation sera ignorée.",
+    error
+  );
 }
 
 /**
@@ -61,11 +134,13 @@ export function buildOpenFiscaPayload(rawJson) {
   const individus = {
     individu_1: {
       salaire_de_base: createPeriodValues("salaire_de_base", salaire1),
-      age: createPeriodValues("age", age1)
+      age: createPeriodValues("age", age1),
+      aah: createPeriodValues("aah", null)
     },
     individu_2: {
       salaire_de_base: createPeriodValues("salaire_de_base", salaire2),
-      age: createPeriodValues("age", age2)
+      age: createPeriodValues("age", age2),
+      aah: createPeriodValues("aah", null)
     }
   };
 
@@ -100,7 +175,10 @@ export function buildOpenFiscaPayload(rawJson) {
   const familles = {
     famille_1: {
       parents: ["individu_1", "individu_2"],
-      enfants: enfantsIds
+      enfants: enfantsIds,
+      rsa: createPeriodValues("rsa", null),
+      aide_logement: createPeriodValues("aide_logement", null),
+      af: createPeriodValues("af", null)
     }
   };
 
@@ -126,6 +204,20 @@ export function buildOpenFiscaPayload(rawJson) {
     foyers_fiscaux,
     menages
   };
+
+  if (validateSituationInput && !validateSituationInput(payload)) {
+    const errors = validateSituationInput.errors || [];
+    const formattedErrors = errors
+      .map((err) => {
+        const pathMessage = err.instancePath ? `${err.instancePath} ` : "";
+        return `${pathMessage}${err.message}`;
+      })
+      .join("; ");
+
+    throw new Error(
+      `Le payload généré ne respecte pas le schéma SituationInput d'OpenFisca: ${formattedErrors}`
+    );
+  }
 
   return payload;
 }
