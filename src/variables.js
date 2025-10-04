@@ -871,7 +871,7 @@ export function buildOpenFiscaPayload(rawJson) {
       .map(([name]) => name)
   );
 
-  const createPeriodValues = (variableName, value) => {
+  const wrapValueForPeriodicity = (variableName, value, { backfill = false } = {}) => {
     const periodicity = variablesMeta?.[variableName]?.periodicity;
     const safeValue = value === undefined ? null : value;
 
@@ -881,12 +881,18 @@ export function buildOpenFiscaPayload(rawJson) {
 
     const monthlyValues = { [currentMonth]: safeValue };
 
-    if (periodicity === "month") {
+    if (backfill && (periodicity === "month" || periodicity === undefined)) {
       return backfillPreviousMonths(monthlyValues);
     }
 
     return monthlyValues;
   };
+
+  const createPeriodValues = (variableName, value) =>
+    wrapValueForPeriodicity(variableName, value);
+
+  const createResourcePeriodValues = (variableName, value) =>
+    wrapValueForPeriodicity(variableName, value, { backfill: true });
 
   const prestationsRecues =
     normalized.prestations_recues || createEmptyPrestationsContainer();
@@ -912,14 +918,14 @@ export function buildOpenFiscaPayload(rawJson) {
   // Construire les individus
   const individus = {
     individu_1: {
-      salaire_de_base: createPeriodValues("salaire_de_base", salaire1),
+      salaire_de_base: createResourcePeriodValues("salaire_de_base", salaire1),
       age: createPeriodValues("age", age1),
-      aah: createPeriodValues("aah", aah1 ?? null)
+      aah: createResourcePeriodValues("aah", aah1 ?? null)
     },
     individu_2: {
-      salaire_de_base: createPeriodValues("salaire_de_base", salaire2),
+      salaire_de_base: createResourcePeriodValues("salaire_de_base", salaire2),
       age: createPeriodValues("age", age2),
-      aah: createPeriodValues("aah", aah2 ?? null)
+      aah: createResourcePeriodValues("aah", aah2 ?? null)
     }
   };
 
