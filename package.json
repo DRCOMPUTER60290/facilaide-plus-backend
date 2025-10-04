@@ -1,0 +1,21 @@
+{
+  "name": "facilaide-plus-backend",
+  "version": "1.0.0",
+  "description": "Backend API pour FacilAide+ (simulation d'aides sociales avec OpenAI et OpenFisca)",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.104.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
