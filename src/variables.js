@@ -99,6 +99,47 @@ function formatPeriodicity(periodicity) {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
 
+function backfillPreviousMonths(periodValues, monthsToBackfill = 3) {
+  if (!periodValues || typeof periodValues !== "object") {
+    return periodValues;
+  }
+
+  const periodKeys = Object.keys(periodValues);
+  if (periodKeys.length === 0) {
+    return periodValues;
+  }
+
+  const referenceMonth = periodKeys[0];
+  if (!/^\d{4}-\d{2}$/.test(referenceMonth)) {
+    return periodValues;
+  }
+
+  const referenceDate = new Date(`${referenceMonth}-01T00:00:00Z`);
+  if (Number.isNaN(referenceDate.getTime())) {
+    return periodValues;
+  }
+
+  const referenceValue = periodValues[referenceMonth];
+  const filledPeriods = {};
+
+  for (let offset = monthsToBackfill; offset >= 1; offset -= 1) {
+    const date = new Date(referenceDate);
+    date.setUTCMonth(date.getUTCMonth() - offset);
+    const periodKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    if (Object.prototype.hasOwnProperty.call(periodValues, periodKey)) {
+      filledPeriods[periodKey] = periodValues[periodKey];
+    } else {
+      filledPeriods[periodKey] = referenceValue;
+    }
+  }
+
+  periodKeys.forEach((key) => {
+    filledPeriods[key] = periodValues[key];
+  });
+
+  return filledPeriods;
+}
+
 function toNumber(value) {
   if (value === undefined || value === null || value === "") {
     return undefined;
@@ -838,7 +879,13 @@ export function buildOpenFiscaPayload(rawJson) {
       return { [currentYear]: safeValue };
     }
 
-    return { [currentMonth]: safeValue };
+    const monthlyValues = { [currentMonth]: safeValue };
+
+    if (periodicity === "month") {
+      return backfillPreviousMonths(monthlyValues);
+    }
+
+    return monthlyValues;
   };
 
   const prestationsRecues =
