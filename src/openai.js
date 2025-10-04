@@ -12,14 +12,30 @@ export async function callOpenAI(userMessage) {
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "Tu es un assistant social. Analyse le texte et génère uniquement un JSON brut de variables (clé = nom OpenFisca, valeur = nombre ou texte). Ne donne jamais d’explications." },
+        {
+          role: "system",
+          content: `
+Tu es un assistant social. 
+Analyse le texte utilisateur et génère uniquement un objet JSON **valide**.
+- Ne mets pas de texte explicatif.
+- Ne mets pas de balises Markdown (\`\`\`json).
+- Ne renvoie que du JSON brut (objet { ... }).
+`
+        },
         { role: "user", content: userMessage }
       ]
     });
 
-    return response.choices[0].message.content;
+    // Nettoyer la sortie si jamais il reste des backticks
+    let output = response.choices[0].message.content.trim();
+    output = output.replace(/```json|```/g, "").trim();
+
+    return JSON.parse(output);
+
   } catch (error) {
     console.error("Erreur OpenAI:", error.message);
     throw error;
   }
 }
+
+
