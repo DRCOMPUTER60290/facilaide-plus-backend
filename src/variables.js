@@ -166,6 +166,170 @@ function toNumber(value) {
   return undefined;
 }
 
+const HOUSING_STATUS_CODES = new Set([
+  "non_renseigne",
+  "primo_accedant",
+  "proprietaire",
+  "locataire_hlm",
+  "locataire_vide",
+  "locataire_meuble",
+  "loge_gratuitement",
+  "locataire_foyer",
+  "sans_domicile"
+]);
+
+const HOUSING_STATUS_ALIASES = {
+  proprietaire: "proprietaire",
+  proprietaire_occupant: "proprietaire",
+  proprietaire_occupante: "proprietaire",
+  proprio: "proprietaire",
+  proprietaire_residence_principale: "proprietaire",
+  primo_accedant: "primo_accedant",
+  primo_accedante: "primo_accedant",
+  primo_accedente: "primo_accedant",
+  locataire: "locataire_vide",
+  locataire_vide: "locataire_vide",
+  locataire_prive: "locataire_vide",
+  locataire_privee: "locataire_vide",
+  locataire_classique: "locataire_vide",
+  locataire_standard: "locataire_vide",
+  locataire_meuble: "locataire_meuble",
+  locataire_meublee: "locataire_meuble",
+  locataire_meuble_prive: "locataire_meuble",
+  locataire_meuble_privee: "locataire_meuble",
+  locataire_hlm: "locataire_hlm",
+  logement_hlm: "locataire_hlm",
+  locataire_logement_social: "locataire_hlm",
+  locataire_social: "locataire_hlm",
+  bailleur_social: "locataire_hlm",
+  locataire_foyer: "locataire_foyer",
+  foyer: "locataire_foyer",
+  residence_sociale: "locataire_foyer",
+  foyer_logement: "locataire_foyer",
+  loge_gratuitement: "loge_gratuitement",
+  loge_gratuit: "loge_gratuitement",
+  heberge_gratuitement: "loge_gratuitement",
+  heberge_gratuitement_chez_parents: "loge_gratuitement",
+  heberge_chez_parents: "loge_gratuitement",
+  heberge_chez_ses_parents: "loge_gratuitement",
+  heberge_chez_un_ami: "loge_gratuitement",
+  heberge_chez_un_proche: "loge_gratuitement",
+  heberge: "loge_gratuitement",
+  loge_chez_amis: "loge_gratuitement",
+  loge_chez_parents: "loge_gratuitement",
+  loge_chez_proches: "loge_gratuitement",
+  sans_domicile: "sans_domicile",
+  sans_abri: "sans_domicile",
+  hebergement_urgence: "sans_domicile",
+  hebergement_durgence: "sans_domicile",
+  autre: "non_renseigne",
+  non_renseigne: "non_renseigne"
+};
+
+function sanitizeHousingStatusCandidate(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  return String(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizeHousingStatus(value) {
+  if (value === undefined || value === null) {
+    return "non_renseigne";
+  }
+
+  if (typeof value === "object") {
+    if (Object.prototype.hasOwnProperty.call(value, "statut")) {
+      return normalizeHousingStatus(value.statut);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, "status")) {
+      return normalizeHousingStatus(value.status);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, "statut_occupation")) {
+      return normalizeHousingStatus(value.statut_occupation);
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(value, "statut_occupation_logement")
+    ) {
+      return normalizeHousingStatus(value.statut_occupation_logement);
+    }
+  }
+
+  const sanitized = sanitizeHousingStatusCandidate(value);
+  if (!sanitized) {
+    return "non_renseigne";
+  }
+
+  if (HOUSING_STATUS_CODES.has(sanitized)) {
+    return sanitized;
+  }
+
+  if (HOUSING_STATUS_ALIASES[sanitized]) {
+    return HOUSING_STATUS_ALIASES[sanitized];
+  }
+
+  const heuristics = [
+    {
+      matches: (candidate) =>
+        candidate.includes("heberge") && candidate.includes("gratuit"),
+      value: "loge_gratuitement"
+    },
+    {
+      matches: (candidate) =>
+        candidate.includes("loge") && candidate.includes("gratuit"),
+      value: "loge_gratuitement"
+    },
+    {
+      matches: (candidate) =>
+        candidate.includes("locataire") && candidate.includes("hlm"),
+      value: "locataire_hlm"
+    },
+    {
+      matches: (candidate) =>
+        candidate.includes("locataire") && candidate.includes("meuble"),
+      value: "locataire_meuble"
+    },
+    {
+      matches: (candidate) =>
+        candidate.includes("locataire") && candidate.includes("foyer"),
+      value: "locataire_foyer"
+    },
+    {
+      matches: (candidate) => candidate.includes("locataire"),
+      value: "locataire_vide"
+    },
+    {
+      matches: (candidate) => candidate.includes("proprietaire"),
+      value: "proprietaire"
+    },
+    {
+      matches: (candidate) =>
+        candidate.includes("primo") && candidate.includes("acced"),
+      value: "primo_accedant"
+    },
+    {
+      matches: (candidate) =>
+        candidate.includes("sans") &&
+        (candidate.includes("domicile") || candidate.includes("abri")),
+      value: "sans_domicile"
+    }
+  ];
+
+  for (const { matches, value: mapped } of heuristics) {
+    if (matches(sanitized)) {
+      return mapped;
+    }
+  }
+
+  return "non_renseigne";
+}
+
 function parseDate(value) {
   if (!value && value !== 0) {
     return null;
@@ -772,6 +936,60 @@ function normalizeUserInput(rawJson = {}) {
     prestationsADemanderEntries
   );
 
+  const logementStatutPaths = [
+    ["logement", "statut"],
+    ["logement", "status"],
+    ["logement", "statut_occupation"],
+    ["logement", "statutOccupation"],
+    ["logement", "occupation"],
+    ["logement", "type"],
+    ["logement", "statut_occupation_logement"],
+    ["logement_statut"],
+    ["logementStatus"],
+    ["statut_logement"],
+    ["statut_occupation_logement"],
+    ["menage", "statut_occupation_logement"],
+    ["menage", "statut"],
+    ["menage", "logement", "statut"],
+    ["situation", "logement", "statut"],
+    ["situation", "logement", "status"],
+    ["habitation", "statut"],
+    ["habitation", "status"],
+    ["housing", "status"],
+    ["housing", "statut"]
+  ];
+
+  let logementStatutBrut = getValueByPaths(source, logementStatutPaths);
+
+  if (logementStatutBrut === undefined) {
+    const logementSection = getValueByPaths(source, [
+      ["logement"],
+      ["situation", "logement"],
+      ["menage", "logement"],
+      ["habitation"],
+      ["housing"]
+    ]);
+
+    if (
+      typeof logementSection === "string" ||
+      typeof logementSection === "number"
+    ) {
+      logementStatutBrut = logementSection;
+    } else if (logementSection && typeof logementSection === "object") {
+      logementStatutBrut = getValueByPaths(logementSection, [
+        ["statut"],
+        ["status"],
+        ["statut_occupation"],
+        ["statutOccupation"],
+        ["occupation"],
+        ["type"],
+        ["statut_occupation_logement"]
+      ]);
+    }
+  }
+
+  const statutOccupationLogement = normalizeHousingStatus(logementStatutBrut);
+
   const salaireDemandeur = toNumber(
     getValueByPaths(source, [
       ["salaire_de_base"],
@@ -1141,7 +1359,8 @@ function normalizeUserInput(rawJson = {}) {
     enfants: enfantsAges,
     enfants_details: enfantsDetails,
     prestations_recues: prestationsRecues,
-    prestations_a_demander: prestationsADemander
+    prestations_a_demander: prestationsADemander,
+    statut_occupation_logement: statutOccupationLogement
   };
 }
 
@@ -1246,6 +1465,9 @@ export function buildOpenFiscaPayload(rawJson) {
   // Construire familles, menages et foyers fiscaux
   const enfantsIds = Array.from({ length: nbEnfants }, (_, i) => `enfant_${i + 1}`);
 
+  const statutOccupationLogement =
+    normalized.statut_occupation_logement || "non_renseigne";
+
   const rsaEntry = getPrestationEntry(prestationsRecues, "menage", "rsa");
   const aideLogementEntry = getPrestationEntry(
     prestationsRecues,
@@ -1288,7 +1510,11 @@ export function buildOpenFiscaPayload(rawJson) {
     menage_1: {
       personne_de_reference: ["individu_1"],
       conjoint: ["individu_2"],
-      enfants: enfantsIds
+      enfants: enfantsIds,
+      statut_occupation_logement: createPeriodValues(
+        "statut_occupation_logement",
+        statutOccupationLogement
+      )
     }
   };
 
