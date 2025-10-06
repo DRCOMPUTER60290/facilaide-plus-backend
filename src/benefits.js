@@ -108,7 +108,105 @@ function resolvePeriodKey(periodicity, currentMonth, currentYear) {
   return currentMonth;
 }
 
-export function extractAvailableBenefits(result, options = {}) {
+function buildDeclaredAmounts(payload) {
+  if (!payload || typeof payload !== "object") {
+    return {};
+  }
+
+  const relevantCollectionKeys = Object.values(ENTITY_COLLECTION_KEYS);
+  const rootObject = payload && typeof payload === "object" ? payload : {};
+  const entitiesFromPayload =
+    rootObject.entities && typeof rootObject.entities === "object"
+      ? rootObject.entities
+      : {};
+
+  const declared = {};
+
+  const extractPeriodAmounts = (variableValues) => {
+    if (variableValues === undefined || variableValues === null) {
+      return {};
+    }
+
+    if (typeof variableValues !== "object") {
+      return {};
+    }
+
+    const periods = {};
+
+    for (const [periodKey, entry] of Object.entries(variableValues)) {
+      if (periodKey === "value") {
+        continue;
+      }
+
+      const amount =
+        entry && typeof entry === "object" && "value" in entry
+          ? toFiniteNumber(entry.value)
+          : toFiniteNumber(entry);
+
+      if (typeof amount === "number" && Number.isFinite(amount)) {
+        periods[periodKey] = amount;
+      }
+    }
+
+    if (
+      !Object.keys(periods).length &&
+      Object.prototype.hasOwnProperty.call(variableValues, "value")
+    ) {
+      const amount = toFiniteNumber(variableValues.value);
+      if (typeof amount === "number" && Number.isFinite(amount)) {
+        periods.value = amount;
+      }
+    }
+
+    return periods;
+  };
+
+  for (const key of relevantCollectionKeys) {
+    const fromRoot = rootObject[key];
+    const fromEntities = entitiesFromPayload[key];
+
+    const normalizedRoot = fromRoot && typeof fromRoot === "object" ? fromRoot : undefined;
+    const normalizedEntities =
+      fromEntities && typeof fromEntities === "object" ? fromEntities : undefined;
+
+    const collection = {
+      ...(normalizedRoot || {}),
+      ...(normalizedEntities || {})
+    };
+
+    if (!Object.keys(collection).length) {
+      continue;
+    }
+
+    for (const [entityId, entityValues] of Object.entries(collection)) {
+      if (!entityValues || typeof entityValues !== "object") {
+        continue;
+      }
+
+      for (const [variableId, variableValues] of Object.entries(entityValues)) {
+        const periods = extractPeriodAmounts(variableValues);
+        const positiveEntries = Object.entries(periods).filter(([, amount]) => amount > 0);
+
+        if (!positiveEntries.length) {
+          continue;
+        }
+
+        declared[key] = declared[key] || {};
+        declared[key][entityId] = declared[key][entityId] || {};
+        declared[key][entityId][variableId] =
+          declared[key][entityId][variableId] || {};
+
+        for (const [periodKey, amount] of positiveEntries) {
+          declared[key][entityId][variableId][periodKey] = amount;
+        }
+      }
+    }
+  }
+
+  return declared;
+}
+
+export function extractAvailableBenefits(result, payload, options = {}) {
   if (!result || typeof result !== "object") {
     return [];
   }
@@ -127,6 +225,8 @@ export function extractAvailableBenefits(result, options = {}) {
     rootObject.entities && typeof rootObject.entities === "object" ? rootObject.entities : {};
 
   const entities = {};
+
+  const declaredAmounts = buildDeclaredAmounts(payload);
 
   for (const key of relevantCollectionKeys) {
     const fromRoot = rootObject[key];
@@ -159,8 +259,14 @@ export function extractAvailableBenefits(result, options = {}) {
     let totalAmount = 0;
     let hasPositiveAmount = false;
 
-    for (const entityValues of Object.values(collection)) {
+    for (const [entityId, entityValues] of Object.entries(collection)) {
       if (!entityValues || typeof entityValues !== "object") {
+        continue;
+      }
+
+      const declaredForEntity =
+        declaredAmounts?.[containerKey]?.[entityId]?.[benefit.id]?.[periodKey];
+      if (typeof declaredForEntity === "number" && declaredForEntity > 0) {
         continue;
       }
 
