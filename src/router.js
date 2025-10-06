@@ -46,7 +46,7 @@ router.post("/simulate", async (req, res) => {
 
     // Envoi à OpenFisca
     const result = await callOpenFisca(payload);
-    const availableBenefits = extractAvailableBenefits(result);
+    const availableBenefits = extractAvailableBenefits(result, payload);
 
     res.json({ payload, result, availableBenefits });
 

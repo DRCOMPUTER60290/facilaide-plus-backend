@@ -55,7 +55,7 @@ test("extractAvailableBenefits agrège les montants mensuels positifs et ignore 
     }
   };
 
-  const benefits = extractAvailableBenefits(result, { now });
+  const benefits = extractAvailableBenefits(result, undefined, { now });
 
   assert.deepEqual(benefits, [
     {
@@ -110,7 +110,7 @@ test("extractAvailableBenefits gère les variables annuelles", () => {
     }
   };
 
-  const benefits = extractAvailableBenefits(result, { now });
+  const benefits = extractAvailableBenefits(result, undefined, { now });
 
   assert.deepEqual(benefits, [
     {
@@ -176,7 +176,7 @@ test("extractAvailableBenefits prend en compte les collections d'entités à la 
     }
   };
 
-  const benefits = extractAvailableBenefits(result, { now });
+  const benefits = extractAvailableBenefits(result, undefined, { now });
 
   assert.deepEqual(benefits, [
     {
@@ -194,4 +194,33 @@ test("extractAvailableBenefits prend en compte les collections d'entités à la 
       amount: 650
     }
   ]);
+});
+
+test("extractAvailableBenefits ignore les prestations déjà déclarées dans le payload", () => {
+  const now = new Date("2024-06-01T12:00:00Z");
+  const currentMonth = getCurrentMonthKey(now);
+
+  const payload = {
+    familles: {
+      famille_1: {
+        rsa: {
+          [currentMonth]: 400
+        }
+      }
+    }
+  };
+
+  const result = {
+    familles: {
+      famille_1: {
+        rsa: {
+          [currentMonth]: 400
+        }
+      }
+    }
+  };
+
+  const benefits = extractAvailableBenefits(result, payload, { now });
+
+  assert.deepEqual(benefits, []);
 });
