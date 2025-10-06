@@ -2,6 +2,7 @@ import express from "express";
 import { callOpenAI } from "./openai.js";
 import { callOpenFisca } from "./openfisca.js";
 import { buildOpenFiscaPayload } from "./variables.js";
+import extractAvailableBenefits from "./benefits.js";
 
 const router = express.Router();
 
@@ -45,7 +46,9 @@ router.post("/simulate", async (req, res) => {
 
     // Envoi à OpenFisca
     const result = await callOpenFisca(payload);
-    res.json({ payload, result });
+    const availableBenefits = extractAvailableBenefits(result);
+
+    res.json({ payload, result, availableBenefits });
 
   } catch (error) {
     res.status(500).json({ error: error.message });

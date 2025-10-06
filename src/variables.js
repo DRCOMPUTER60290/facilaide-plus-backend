@@ -11,6 +11,10 @@ try {
   console.warn("⚠️ Impossible de charger openfiscaVariablesMeta.json, on utilisera des règles simplifiées.");
 }
 
+export function getVariablesMeta() {
+  return variablesMeta;
+}
+
 function allowNullInAdditionalProperties(schemaNode, insideAdditionalProps = false) {
   if (!schemaNode || typeof schemaNode !== "object") {
     return;

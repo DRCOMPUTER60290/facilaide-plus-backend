@@ -14,3 +14,27 @@ reste à `null`.
    est renseignée car l’aide est déclarée comme reçue) tandis que
    `RSA famille_1` affiche `{... : null}` : la demande est simplement envisagée
    et n’est donc pas envoyée à OpenFisca.
+
+## Champ `availableBenefits` dans la réponse `/simulate`
+
+L’appel `POST /simulate` renvoie désormais un objet contenant :
+
+```json
+{
+  "payload": { "…" },
+  "result": { "…" },
+  "availableBenefits": [
+    {
+      "id": "rsa",
+      "label": "Revenu de solidarité active",
+      "entity": "famille",
+      "period": "2024-05",
+      "amount": 532.42
+    }
+  ]
+}
+```
+
+`availableBenefits` liste les aides monétaires calculées par OpenFisca pour la
+période en cours (mois ou année selon la variable). Seuls les montants
+strictement positifs sont conservés.
