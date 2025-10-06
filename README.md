@@ -31,10 +31,12 @@ L’appel `POST /simulate` renvoie désormais un objet contenant :
       "period": "2024-05",
       "amount": 532.42
     }
-  ]
+  ],
+  "explanation": "Le foyer peut prétendre au RSA pour un montant estimé à 532,42 € par mois…"
 }
 ```
 
 `availableBenefits` liste les aides monétaires calculées par OpenFisca pour la
 période en cours (mois ou année selon la variable). Seuls les montants
-strictement positifs sont conservés.
+strictement positifs sont conservés. Le champ `explanation` fournit un résumé en
+français clair généré automatiquement (ou `null` si la génération échoue).

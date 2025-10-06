@@ -96,4 +96,50 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
   }
 }
 
+/**
+ * Résume en français un résultat OpenFisca pour l’utilisateur final.
+ * Retourne null si la génération échoue ou si aucun texte n’est produit.
+ */
+export async function describeOpenFiscaResult(result, availableBenefits = []) {
+  const stringify = (data) => {
+    try {
+      return JSON.stringify(data, null, 2);
+    } catch (error) {
+      console.error("Erreur de sérialisation pour describeOpenFiscaResult:", error.message);
+      return "";
+    }
+  };
+
+  try {
+    const response = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Tu es un assistant social. Tu aides un conseiller à expliquer en français simple les résultats d'une simulation OpenFisca."
+        },
+        {
+          role: "user",
+          content: `Résume en français clair le résultat OpenFisca ci-dessous pour une personne qui ne connaît pas les termes techniques. Mentionne les aides pertinentes et les montants importants.
+
+Résultat complet:
+${stringify(result)}
+
+Aides disponibles:
+${stringify(availableBenefits)}
+`
+        }
+      ],
+      temperature: 0.7
+    });
+
+    const explanation = response?.choices?.[0]?.message?.content?.trim();
+    return explanation || null;
+  } catch (error) {
+    console.error("Erreur OpenAI (describeOpenFiscaResult):", error.message);
+    return null;
+  }
+}
+
 
