@@ -145,6 +145,8 @@ export async function describeOpenFiscaResult(
 - Distingue explicitement les aides déjà perçues (dans "result") des aides potentielles (dans "availableBenefits").
 - Si une aide majeure (RSA, allocations familiales, aide au logement/APL) est absente de "availableBenefits" ou vaut zéro dans "result", explique précisément pourquoi elle n'est pas accessible en t'appuyant sur les données du foyer (revenus y compris AAH, composition familiale, statut de logement, etc.).
 - Appuie chaque explication d'inéligibilité sur les informations chiffrées ou catégorielles du foyer présentes dans les données fournies.
+- Lorsque tu abordes les allocations familiales, rappelle qu'elles dépendent du nombre d'enfants à charge et signale explicitement l'absence d'éligibilité lorsqu'il n'y a qu'un seul enfant, sans invoquer les revenus ou le logement pour cette explication.
+- N'émet aucune hypothèse lorsque les données ne permettent pas de justifier une inéligibilité : indique clairement que l'information manque plutôt que de spéculer.
 - Si la liste "availableBenefits" est vide, indique explicitement qu'aucune aide supplémentaire n'est disponible pour cette situation sans laisser penser que les aides déjà perçues disparaissent.
 
 Résultat complet:
