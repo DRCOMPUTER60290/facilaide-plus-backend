@@ -858,6 +858,38 @@ function normalizeUserInput(rawJson = {}) {
   const source = rawJson && typeof rawJson === "object" ? rawJson : {};
   const simulationReferenceDate = new Date();
 
+  const extractFirstNameFromValue = (value) => {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed || undefined;
+    }
+
+    if (typeof value === "number") {
+      const normalized = String(value).trim();
+      return normalized || undefined;
+    }
+
+    if (typeof value === "object") {
+      const nested =
+        value.prenom ??
+        value.prénom ??
+        value.first_name ??
+        value.firstname ??
+        value.firstName ??
+        undefined;
+
+      if (nested !== undefined) {
+        return extractFirstNameFromValue(nested);
+      }
+    }
+
+    return undefined;
+  };
+
   const extractChildBirthdateCandidate = (item) => {
     if (item === undefined || item === null) {
       return undefined;
@@ -886,6 +918,7 @@ function normalizeUserInput(rawJson = {}) {
   };
 
   const childBirthdatesByIndex = new Map();
+  const childFirstNamesByIndex = new Map();
   const assignChildBirthdateAtIndex = (index, candidate) => {
     if (index === undefined || index === null || index < 0) {
       return;
@@ -910,6 +943,23 @@ function normalizeUserInput(rawJson = {}) {
     }
 
     childBirthdatesByIndex.set(index, iso);
+  };
+
+  const assignChildFirstNameAtIndex = (index, candidate) => {
+    if (index === undefined || index === null || index < 0) {
+      return;
+    }
+
+    if (childFirstNamesByIndex.has(index)) {
+      return;
+    }
+
+    const normalized = extractFirstNameFromValue(candidate);
+    if (!normalized) {
+      return;
+    }
+
+    childFirstNamesByIndex.set(index, normalized);
   };
 
   const prestationsRecuesEntries = extractPrestations(source, [
@@ -1163,6 +1213,58 @@ function normalizeUserInput(rawJson = {}) {
     ageConjoint = computedAgeConjoint;
   }
 
+  const prenomDemandeur = extractFirstNameFromValue(
+    getValueByPaths(source, [
+      ["prenom_demandeur"],
+      ["demandeur_prenom"],
+      ["demandeur", "prenom"],
+      ["demandeur", "prénom"],
+      ["demandeur", "first_name"],
+      ["demandeur", "firstname"],
+      ["demandeur", "firstName"],
+      ["personnes", "demandeur", "prenom"],
+      ["personnes", "demandeur", "prénom"],
+      ["personnes", "demandeur", "first_name"],
+      ["personnes", "demandeur", "firstname"],
+      ["personnes", "demandeur", "firstName"],
+      ["situation", "demandeur", "prenom"],
+      ["situation", "demandeur", "prénom"],
+      ["situation", "demandeur", "first_name"],
+      ["situation", "demandeur", "firstname"],
+      ["situation", "demandeur", "firstName"],
+      ["menage", "demandeur", "prenom"],
+      ["menage", "demandeur", "first_name"],
+      ["menage", "demandeur", "firstname"],
+      ["menage", "demandeur", "firstName"]
+    ])
+  );
+
+  const prenomConjoint = extractFirstNameFromValue(
+    getValueByPaths(source, [
+      ["prenom_conjoint"],
+      ["conjoint_prenom"],
+      ["conjoint", "prenom"],
+      ["conjoint", "prénom"],
+      ["conjoint", "first_name"],
+      ["conjoint", "firstname"],
+      ["conjoint", "firstName"],
+      ["personnes", "conjoint", "prenom"],
+      ["personnes", "conjoint", "prénom"],
+      ["personnes", "conjoint", "first_name"],
+      ["personnes", "conjoint", "firstname"],
+      ["personnes", "conjoint", "firstName"],
+      ["situation", "conjoint", "prenom"],
+      ["situation", "conjoint", "prénom"],
+      ["situation", "conjoint", "first_name"],
+      ["situation", "conjoint", "firstname"],
+      ["situation", "conjoint", "firstName"],
+      ["menage", "conjoint", "prenom"],
+      ["menage", "conjoint", "first_name"],
+      ["menage", "conjoint", "firstname"],
+      ["menage", "conjoint", "firstName"]
+    ])
+  );
+
   const childPaths = [
     ["enfants"],
     ["situation", "enfants"],
@@ -1215,6 +1317,8 @@ function normalizeUserInput(rawJson = {}) {
         if (candidate !== undefined) {
           assignChildBirthdateAtIndex(index, candidate);
         }
+
+        assignChildFirstNameAtIndex(index, item);
       });
     } else if (typeof value === "object") {
       Object.entries(value).forEach(([key, child]) => {
@@ -1232,6 +1336,8 @@ function normalizeUserInput(rawJson = {}) {
         if (candidate !== undefined) {
           assignChildBirthdateAtIndex(childIndex, candidate);
         }
+
+        assignChildFirstNameAtIndex(childIndex, child);
       });
     }
 
@@ -1269,6 +1375,24 @@ function normalizeUserInput(rawJson = {}) {
     assignChildBirthdateAtIndex(index, value);
   });
 
+  const indexedChildFirstNameEntries = Object.entries(source)
+    .filter(([key]) => /^(?:prenom_enfant_\d+|enfant_\d+_prenom)$/i.test(key))
+    .sort(
+      ([keyA], [keyB]) =>
+        parseInt(keyA.match(/(\d+)/)?.[0] ?? "0", 10) -
+        parseInt(keyB.match(/(\d+)/)?.[0] ?? "0", 10)
+    );
+
+  indexedChildFirstNameEntries.forEach(([key, value]) => {
+    const match = key.match(/(\d+)/);
+    if (!match) {
+      return;
+    }
+
+    const index = Number.parseInt(match[1], 10) - 1;
+    assignChildFirstNameAtIndex(index, value);
+  });
+
   let maxBirthdateIndex = -1;
   childBirthdatesByIndex.forEach((_, index) => {
     if (index > maxBirthdateIndex) {
@@ -1276,6 +1400,14 @@ function normalizeUserInput(rawJson = {}) {
     }
   });
   const childCountFromBirthdates = maxBirthdateIndex >= 0 ? maxBirthdateIndex + 1 : 0;
+
+  let maxFirstNameIndex = -1;
+  childFirstNamesByIndex.forEach((_, index) => {
+    if (index > maxFirstNameIndex) {
+      maxFirstNameIndex = index;
+    }
+  });
+  const childCountFromFirstNames = maxFirstNameIndex >= 0 ? maxFirstNameIndex + 1 : 0;
 
   const nombreEnfantsValeur = toNumber(
     getValueByPaths(source, [
@@ -1299,7 +1431,11 @@ function normalizeUserInput(rawJson = {}) {
   }
 
   if (nombreEnfants === undefined) {
-    nombreEnfants = Math.max(enfantsAges.length, childCountFromBirthdates);
+    nombreEnfants = Math.max(
+      enfantsAges.length,
+      childCountFromBirthdates,
+      childCountFromFirstNames
+    );
   }
 
   if (!Number.isFinite(nombreEnfants)) {
@@ -1341,9 +1477,15 @@ function normalizeUserInput(rawJson = {}) {
     }
   }
 
+  const enfantsPrenoms = Array.from(
+    { length: nombreEnfants },
+    (_, index) => childFirstNamesByIndex.get(index) ?? null
+  );
+
   const enfantsDetails = Array.from({ length: nombreEnfants }, (_, index) => ({
     age: enfantsAges[index],
-    date_naissance: enfantsDatesNaissance[index]
+    date_naissance: enfantsDatesNaissance[index],
+    prenom: enfantsPrenoms[index]
   }));
 
   return {
@@ -1355,9 +1497,12 @@ function normalizeUserInput(rawJson = {}) {
     age_conjoint: ageConjoint ?? 30,
     date_naissance: dateNaissanceDemandeurIso ?? null,
     date_naissance_conjoint: dateNaissanceConjointIso ?? null,
+    prenom_demandeur: prenomDemandeur ?? null,
+    prenom_conjoint: prenomConjoint ?? null,
     nombre_enfants: nombreEnfants,
     enfants: enfantsAges,
     enfants_details: enfantsDetails,
+    enfants_prenoms: enfantsPrenoms,
     prestations_recues: prestationsRecues,
     prestations_a_demander: prestationsADemander,
     statut_occupation_logement: statutOccupationLogement
