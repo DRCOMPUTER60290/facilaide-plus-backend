@@ -24,9 +24,11 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
   "aah_conjoint": number | null, // Allocation aux adultes handicapés du conjoint (prestation sociale, distincte d'un salaire)
   "age": number | null,
   "age_conjoint": number | null,
+  "date_naissance": string | null, // Format ISO AAAA-MM-JJ si connu
+  "date_naissance_conjoint": string | null,
   "nombre_enfants": number | null,
   "enfants": [
-    { "age": number | null }
+    { "age": number | null, "date_naissance": string | null }
   ],
   "prestations_recues": [
     {
@@ -49,9 +51,9 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
     "conjoint": { "salaire_de_base": number | null }
   },
   "situation": {
-    "demandeur": { "age": number | null },
-    "conjoint": { "age": number | null },
-    "enfants": [ { "age": number | null } ]
+    "demandeur": { "age": number | null, "date_naissance": string | null },
+    "conjoint": { "age": number | null, "date_naissance": string | null },
+    "enfants": [ { "age": number | null, "date_naissance": string | null } ]
   }
 }
 - Utilise impérativement "prestations_recues" pour les aides déjà perçues et "prestations_a_demander" pour celles seulement envisagées.
@@ -60,6 +62,7 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
 - Ne mets pas de texte explicatif.
 - Ne mets pas de balises Markdown (\`\`\`json).
 - Ne renvoie que du JSON brut (objet { ... }).
+- Les dates de naissance doivent être exprimées au format ISO AAAA-MM-JJ lorsqu'elles sont connues.
 `
         },
         { role: "user", content: userMessage }

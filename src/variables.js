@@ -166,6 +166,100 @@ function toNumber(value) {
   return undefined;
 }
 
+function parseDate(value) {
+  if (!value && value !== 0) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+
+  if (typeof value === "number") {
+    const dateFromNumber = new Date(value);
+    return Number.isNaN(dateFromNumber.getTime()) ? null : dateFromNumber;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const isoMatch = trimmed.match(/^([0-9]{4})[-/.]([0-9]{2})[-/.]([0-9]{2})$/);
+  if (isoMatch) {
+    const [, yearStr, monthStr, dayStr] = isoMatch;
+    const year = Number.parseInt(yearStr, 10);
+    const month = Number.parseInt(monthStr, 10) - 1;
+    const day = Number.parseInt(dayStr, 10);
+    const candidate = new Date(Date.UTC(year, month, day));
+    return Number.isNaN(candidate.getTime()) ? null : candidate;
+  }
+
+  const frMatch = trimmed.match(/^([0-9]{2})[-/.]([0-9]{2})[-/.]([0-9]{4})$/);
+  if (frMatch) {
+    const [, dayStr, monthStr, yearStr] = frMatch;
+    const year = Number.parseInt(yearStr, 10);
+    const month = Number.parseInt(monthStr, 10) - 1;
+    const day = Number.parseInt(dayStr, 10);
+    const candidate = new Date(Date.UTC(year, month, day));
+    return Number.isNaN(candidate.getTime()) ? null : candidate;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return new Date(
+    Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate())
+  );
+}
+
+function formatDateToISO(date) {
+  if (!date || Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function computeAgeFromBirthdate(birthdate, referenceDate = new Date()) {
+  if (!birthdate || Number.isNaN(birthdate.getTime())) {
+    return null;
+  }
+
+  const refYear = referenceDate.getUTCFullYear();
+  const refMonth = referenceDate.getUTCMonth();
+  const endOfReferenceMonth = new Date(Date.UTC(refYear, refMonth + 1, 0));
+
+  let age = endOfReferenceMonth.getUTCFullYear() - birthdate.getUTCFullYear();
+  const monthDiff = endOfReferenceMonth.getUTCMonth() - birthdate.getUTCMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && endOfReferenceMonth.getUTCDate() < birthdate.getUTCDate())
+  ) {
+    age -= 1;
+  }
+
+  if (!Number.isFinite(age) || age < 0) {
+    return null;
+  }
+
+  return age;
+}
+
+function isValidAge(value) {
+  return Number.isFinite(value) && value >= 0;
+}
+
 function getNestedValue(obj, path) {
   return path.reduce((acc, key) => {
     if (acc === undefined || acc === null) {
@@ -598,6 +692,61 @@ function getPrestationPayloadAmount(entry) {
 
 function normalizeUserInput(rawJson = {}) {
   const source = rawJson && typeof rawJson === "object" ? rawJson : {};
+  const simulationReferenceDate = new Date();
+
+  const extractChildBirthdateCandidate = (item) => {
+    if (item === undefined || item === null) {
+      return undefined;
+    }
+
+    if (item instanceof Date) {
+      return item;
+    }
+
+    if (typeof item === "string" || typeof item === "number") {
+      return item;
+    }
+
+    if (typeof item === "object") {
+      return (
+        item.date_naissance ??
+        item.date_de_naissance ??
+        item.birthdate ??
+        item.dateNaissance ??
+        item.naissance ??
+        undefined
+      );
+    }
+
+    return undefined;
+  };
+
+  const childBirthdatesByIndex = new Map();
+  const assignChildBirthdateAtIndex = (index, candidate) => {
+    if (index === undefined || index === null || index < 0) {
+      return;
+    }
+
+    if (candidate === undefined || candidate === null || candidate === "") {
+      return;
+    }
+
+    if (childBirthdatesByIndex.has(index)) {
+      return;
+    }
+
+    const parsedBirthdate = parseDate(candidate);
+    if (!parsedBirthdate) {
+      return;
+    }
+
+    const iso = formatDateToISO(parsedBirthdate);
+    if (!iso) {
+      return;
+    }
+
+    childBirthdatesByIndex.set(index, iso);
+  };
 
   const prestationsRecuesEntries = extractPrestations(source, [
     ["prestations_recues"],
@@ -726,7 +875,7 @@ function normalizeUserInput(rawJson = {}) {
     }
   }
 
-  const ageDemandeur = toNumber(
+  let ageDemandeur = toNumber(
     getValueByPaths(source, [
       ["age"],
       ["situation", "age"],
@@ -735,8 +884,11 @@ function normalizeUserInput(rawJson = {}) {
       ["demandeur", "age"]
     ])
   );
+  if (!isValidAge(ageDemandeur)) {
+    ageDemandeur = undefined;
+  }
 
-  const ageConjoint = toNumber(
+  let ageConjoint = toNumber(
     getValueByPaths(source, [
       ["age_conjoint"],
       ["situation", "age_conjoint"],
@@ -745,6 +897,53 @@ function normalizeUserInput(rawJson = {}) {
       ["conjoint", "age"]
     ])
   );
+  if (!isValidAge(ageConjoint)) {
+    ageConjoint = undefined;
+  }
+
+  const rawDateNaissanceDemandeur = getValueByPaths(source, [
+    ["date_naissance"],
+    ["date_de_naissance"],
+    ["situation", "date_naissance"],
+    ["situation", "date_de_naissance"],
+    ["situation", "demandeur", "date_naissance"],
+    ["situation", "demandeur", "date_de_naissance"],
+    ["demandeur", "date_naissance"],
+    ["demandeur", "date_de_naissance"],
+    ["personnes", "demandeur", "date_naissance"],
+    ["personnes", "demandeur", "date_de_naissance"]
+  ]);
+  const birthdateDemandeur = parseDate(rawDateNaissanceDemandeur);
+  const dateNaissanceDemandeurIso = formatDateToISO(birthdateDemandeur);
+  const computedAgeDemandeur = computeAgeFromBirthdate(
+    birthdateDemandeur,
+    simulationReferenceDate
+  );
+  if (isValidAge(computedAgeDemandeur)) {
+    ageDemandeur = computedAgeDemandeur;
+  }
+
+  const rawDateNaissanceConjoint = getValueByPaths(source, [
+    ["date_naissance_conjoint"],
+    ["date_de_naissance_conjoint"],
+    ["situation", "date_naissance_conjoint"],
+    ["situation", "date_de_naissance_conjoint"],
+    ["situation", "conjoint", "date_naissance"],
+    ["situation", "conjoint", "date_de_naissance"],
+    ["conjoint", "date_naissance"],
+    ["conjoint", "date_de_naissance"],
+    ["personnes", "conjoint", "date_naissance"],
+    ["personnes", "conjoint", "date_de_naissance"]
+  ]);
+  const birthdateConjoint = parseDate(rawDateNaissanceConjoint);
+  const dateNaissanceConjointIso = formatDateToISO(birthdateConjoint);
+  const computedAgeConjoint = computeAgeFromBirthdate(
+    birthdateConjoint,
+    simulationReferenceDate
+  );
+  if (isValidAge(computedAgeConjoint)) {
+    ageConjoint = computedAgeConjoint;
+  }
 
   const childPaths = [
     ["enfants"],
@@ -792,6 +991,32 @@ function normalizeUserInput(rawJson = {}) {
       seenChildSignatures.add(signature);
     }
 
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        const candidate = extractChildBirthdateCandidate(item);
+        if (candidate !== undefined) {
+          assignChildBirthdateAtIndex(index, candidate);
+        }
+      });
+    } else if (typeof value === "object") {
+      Object.entries(value).forEach(([key, child]) => {
+        const match = key.match(/enfant(?:_|-)?([0-9]+)/i);
+        if (!match) {
+          return;
+        }
+
+        const childIndex = Number.parseInt(match[1], 10) - 1;
+        if (childIndex < 0) {
+          return;
+        }
+
+        const candidate = extractChildBirthdateCandidate(child);
+        if (candidate !== undefined) {
+          assignChildBirthdateAtIndex(childIndex, candidate);
+        }
+      });
+    }
+
     extractChildAgesFromValue(value).forEach(pushChildAge);
   });
 
@@ -808,6 +1033,31 @@ function normalizeUserInput(rawJson = {}) {
       enfantsAges.push(age);
     }
   });
+
+  const indexedChildBirthdateEntries = Object.entries(source)
+    .filter(([key]) => /^date_naissance_enfant_\d+$/i.test(key))
+    .sort(
+      ([keyA], [keyB]) =>
+        parseInt(keyA.split("_").pop(), 10) - parseInt(keyB.split("_").pop(), 10)
+    );
+
+  indexedChildBirthdateEntries.forEach(([key, value]) => {
+    const match = key.match(/(\d+)$/);
+    if (!match) {
+      return;
+    }
+
+    const index = Number.parseInt(match[1], 10) - 1;
+    assignChildBirthdateAtIndex(index, value);
+  });
+
+  let maxBirthdateIndex = -1;
+  childBirthdatesByIndex.forEach((_, index) => {
+    if (index > maxBirthdateIndex) {
+      maxBirthdateIndex = index;
+    }
+  });
+  const childCountFromBirthdates = maxBirthdateIndex >= 0 ? maxBirthdateIndex + 1 : 0;
 
   const nombreEnfantsValeur = toNumber(
     getValueByPaths(source, [
@@ -831,7 +1081,7 @@ function normalizeUserInput(rawJson = {}) {
   }
 
   if (nombreEnfants === undefined) {
-    nombreEnfants = enfantsAges.length;
+    nombreEnfants = Math.max(enfantsAges.length, childCountFromBirthdates);
   }
 
   if (!Number.isFinite(nombreEnfants)) {
@@ -842,9 +1092,41 @@ function normalizeUserInput(rawJson = {}) {
     enfantsAges.splice(nombreEnfants);
   }
 
+  const enfantsDatesNaissance = Array.from(
+    { length: nombreEnfants },
+    (_, index) => childBirthdatesByIndex.get(index) ?? null
+  );
+
   while (enfantsAges.length < nombreEnfants) {
-    enfantsAges.push(5);
+    enfantsAges.push(undefined);
   }
+
+  for (let i = 0; i < nombreEnfants; i += 1) {
+    const birthdateIso = enfantsDatesNaissance[i];
+    if (!birthdateIso) {
+      continue;
+    }
+
+    const birthdate = parseDate(birthdateIso);
+    const computedAge = computeAgeFromBirthdate(
+      birthdate,
+      simulationReferenceDate
+    );
+    if (isValidAge(computedAge)) {
+      enfantsAges[i] = computedAge;
+    }
+  }
+
+  for (let i = 0; i < nombreEnfants; i += 1) {
+    if (!isValidAge(enfantsAges[i])) {
+      enfantsAges[i] = 5;
+    }
+  }
+
+  const enfantsDetails = Array.from({ length: nombreEnfants }, (_, index) => ({
+    age: enfantsAges[index],
+    date_naissance: enfantsDatesNaissance[index]
+  }));
 
   return {
     salaire_de_base: salaireDemandeur ?? 0,
@@ -853,8 +1135,11 @@ function normalizeUserInput(rawJson = {}) {
     aah_conjoint: aahConjoint ?? null,
     age: ageDemandeur ?? 30,
     age_conjoint: ageConjoint ?? 30,
+    date_naissance: dateNaissanceDemandeurIso ?? null,
+    date_naissance_conjoint: dateNaissanceConjointIso ?? null,
     nombre_enfants: nombreEnfants,
     enfants: enfantsAges,
+    enfants_details: enfantsDetails,
     prestations_recues: prestationsRecues,
     prestations_a_demander: prestationsADemander
   };
