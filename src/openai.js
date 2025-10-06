@@ -141,7 +141,7 @@ export async function describeOpenFiscaResult(
         },
         {
           role: "user",
-          content: `Résume en français clair le résultat OpenFisca ci-dessous pour une personne qui ne connaît pas les termes techniques. Mentionne les aides pertinentes et les montants importants.
+          content: `Résume en français clair le résultat OpenFisca ci-dessous pour une personne qui ne connaît pas les termes techniques. Mentionne les aides pertinentes et les montants importants. Si la liste "availableBenefits" est vide, indique explicitement qu'aucune aide supplémentaire n'est disponible pour cette situation sans laisser penser que les aides déjà perçues disparaissent. Distingue clairement les aides déjà perçues (dans "result") des aides potentielles (dans "availableBenefits").
 
 Résultat complet:
 ${stringify(result)}
