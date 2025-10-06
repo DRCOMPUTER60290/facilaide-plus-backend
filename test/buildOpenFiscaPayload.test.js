@@ -144,3 +144,45 @@ test("birthdates override inconsistent or missing ages", () => {
     "second child age should be derived from birthdate"
   );
 });
+
+test("housing status from user message populates menage payload", () => {
+  const now = new Date();
+  const currentMonth = getCurrentMonthKey(now);
+
+  const ownerPayload = buildOpenFiscaPayload({
+    logement: { statut: "proprietaire" }
+  });
+
+  const hostedPayload = buildOpenFiscaPayload({
+    logement: { statut: "hébergé gratuitement chez mes parents" }
+  });
+
+  const tenantPayload = buildOpenFiscaPayload({
+    logement: { statut: "locataire" }
+  });
+
+  assert.strictEqual(
+    ownerPayload?.menages?.menage_1?.statut_occupation_logement?.[currentMonth],
+    "proprietaire"
+  );
+  assert.strictEqual(
+    hostedPayload?.menages?.menage_1?.statut_occupation_logement?.[currentMonth],
+    "loge_gratuitement"
+  );
+  assert.strictEqual(
+    tenantPayload?.menages?.menage_1?.statut_occupation_logement?.[currentMonth],
+    "locataire_vide"
+  );
+});
+
+test("housing status defaults to non_renseigne when not provided", () => {
+  const now = new Date();
+  const currentMonth = getCurrentMonthKey(now);
+
+  const payload = buildOpenFiscaPayload({});
+
+  assert.strictEqual(
+    payload?.menages?.menage_1?.statut_occupation_logement?.[currentMonth],
+    "non_renseigne"
+  );
+});
