@@ -150,6 +150,7 @@ export async function describeOpenFiscaResult(
 - N'émet aucune hypothèse lorsque les données ne permettent pas de justifier une inéligibilité : indique clairement que l'information manque plutôt que de spéculer.
 - Si la liste "availableBenefits" est vide, indique explicitement qu'aucune aide supplémentaire n'est disponible pour cette situation sans laisser penser que les droits déjà ouverts disparaissent.
 - Conclus impérativement par un paragraphe de synthèse qui récapitule explicitement tous les droits calculés avec leurs montants, puis précise clairement s'il n'existe aucune autre aide disponible.
+- Dans cette synthèse, additionne tous les montants listés pour annoncer le total mensuel global avec une formule claire du type "Au total, le foyer pourrait percevoir … € par mois".
 - Veille à ce que cette synthèse finale mentionne systématiquement chaque prestation pour laquelle un droit est ouvert, y compris l'AAH lorsque c'est le cas, afin d'éviter toute formule laissant entendre qu'aucune aide financière n'est perçue.
 
 Résultat complet:
