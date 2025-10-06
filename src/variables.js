@@ -589,6 +589,15 @@ const BENEFIT_NAME_ALIASES = {
     "prime pour l activite",
     "prime pour l'activité",
     "ppa"
+  ],
+  cf: [
+    "cf",
+    "complement familial",
+    "complément familial",
+    "allocation complement familial",
+    "allocation complément familial",
+    "prestation complement familial",
+    "prestation complément familial"
   ]
 };
 
@@ -600,7 +609,8 @@ const TRACKED_BENEFIT_VARIABLES = [
   "aspa",
   "asi",
   "paje_base",
-  "ppa"
+  "ppa",
+  "cf"
 ];
 
 const BENEFICIARY_ALIASES = {
