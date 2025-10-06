@@ -100,7 +100,11 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
  * Résume en français un résultat OpenFisca pour l’utilisateur final.
  * Retourne null si la génération échoue ou si aucun texte n’est produit.
  */
-export async function describeOpenFiscaResult(result, availableBenefits = []) {
+export async function describeOpenFiscaResult(
+  result,
+  availableBenefits = [],
+  options = {}
+) {
   const stringify = (data) => {
     try {
       return JSON.stringify(data, null, 2);
@@ -109,6 +113,20 @@ export async function describeOpenFiscaResult(result, availableBenefits = []) {
       return "";
     }
   };
+
+  const { personLabels = {} } = options || {};
+
+  const personMappings = Object.entries(personLabels).map(([identifier, label]) => ({
+    identifiant: identifier,
+    libelle: label
+  }));
+
+  const additionalContext =
+    personMappings.length > 0
+      ? `\nCorrespondances entre identifiants techniques et prénoms ou libellés lisibles :\n${stringify(
+          personMappings
+        )}\nUtilise uniquement ces prénoms ou libellés dans ta réponse (par exemple remplace \"individu_1\" par le libellé associé) et n'utilise jamais les identifiants techniques.\n`
+      : "";
 
   try {
     const response = await client.chat.completions.create({
@@ -127,7 +145,7 @@ Résultat complet:
 ${stringify(result)}
 
 Aides disponibles:
-${stringify(availableBenefits)}
+${stringify(availableBenefits)}${additionalContext}
 `
         }
       ],
