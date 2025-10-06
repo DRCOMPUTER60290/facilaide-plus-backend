@@ -142,14 +142,15 @@ export async function describeOpenFiscaResult(
         {
           role: "user",
           content: `Résume en français clair le résultat OpenFisca ci-dessous pour une personne qui ne connaît pas les termes techniques. Mentionne les aides pertinentes et les montants importants.
-- Distingue explicitement les aides déjà perçues (dans "result") des aides potentielles (dans "availableBenefits").
+- Distingue explicitement les droits calculés dans "result" (prestations dont le droit est ouvert) des aides potentielles (dans "availableBenefits").
+- Utilise des formulations neutres telles que "droit ouvert", "montant auquel le foyer est éligible" ou "peut percevoir" et n'indique jamais qu'un versement est effectif tant que l'information n'est pas fournie.
 - Si une aide majeure (RSA, allocations familiales, aide au logement/APL) est absente de "availableBenefits" ou vaut zéro dans "result", explique précisément pourquoi elle n'est pas accessible en t'appuyant sur les données du foyer (revenus y compris AAH, composition familiale, statut de logement, etc.).
 - Appuie chaque explication d'inéligibilité sur les informations chiffrées ou catégorielles du foyer présentes dans les données fournies.
 - Lorsque tu abordes les allocations familiales, rappelle qu'elles dépendent du nombre d'enfants à charge et signale explicitement l'absence d'éligibilité lorsqu'il n'y a qu'un seul enfant, sans invoquer les revenus ou le logement pour cette explication.
 - N'émet aucune hypothèse lorsque les données ne permettent pas de justifier une inéligibilité : indique clairement que l'information manque plutôt que de spéculer.
-- Si la liste "availableBenefits" est vide, indique explicitement qu'aucune aide supplémentaire n'est disponible pour cette situation sans laisser penser que les aides déjà perçues disparaissent.
-- Conclus impérativement par un paragraphe de synthèse qui récapitule explicitement toutes les aides effectivement versées avec leurs montants, puis précise clairement s'il n'existe aucune autre aide disponible.
-- Veille à ce que cette synthèse finale mentionne systématiquement chaque prestation déjà versée, y compris l'AAH lorsque c'est le cas, afin d'éviter toute formule laissant entendre qu'aucune aide financière n'est perçue.
+- Si la liste "availableBenefits" est vide, indique explicitement qu'aucune aide supplémentaire n'est disponible pour cette situation sans laisser penser que les droits déjà ouverts disparaissent.
+- Conclus impérativement par un paragraphe de synthèse qui récapitule explicitement tous les droits calculés avec leurs montants, puis précise clairement s'il n'existe aucune autre aide disponible.
+- Veille à ce que cette synthèse finale mentionne systématiquement chaque prestation pour laquelle un droit est ouvert, y compris l'AAH lorsque c'est le cas, afin d'éviter toute formule laissant entendre qu'aucune aide financière n'est perçue.
 
 Résultat complet:
 ${stringify(result)}
