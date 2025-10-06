@@ -14,6 +14,7 @@ const DEFAULT_BENEFIT_VARIABLE_IDS = [
   "aspa",
   "asi",
   "paje_base",
+  "ppa",
   "rsa"
 ];
 

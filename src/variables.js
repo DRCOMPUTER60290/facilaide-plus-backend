@@ -552,8 +552,56 @@ const BENEFIT_NAME_ALIASES = {
     "allocations familiales",
     "allocation familiale",
     "af"
+  ],
+  ars: [
+    "allocation rentree scolaire",
+    "allocation rentrée scolaire",
+    "ars",
+    "prime de rentree scolaire",
+    "prime de rentrée scolaire"
+  ],
+  aspa: [
+    "allocation solidarite personnes agees",
+    "allocation solidarité personnes âgées",
+    "allocation de solidarite aux personnes agees",
+    "allocation de solidarité aux personnes âgées",
+    "minimum vieillesse",
+    "aspa"
+  ],
+  asi: [
+    "allocation supplementaire invalidite",
+    "allocation supplémentaire invalidité",
+    "asi"
+  ],
+  paje_base: [
+    "paje",
+    "paje base",
+    "allocation de base de la paje",
+    "prestation accueil du jeune enfant",
+    "prestation d'accueil du jeune enfant",
+    "paje base allocation"
+  ],
+  ppa: [
+    "prime d activite",
+    "prime d'activité",
+    "prime activite",
+    "prime activité",
+    "prime pour l activite",
+    "prime pour l'activité",
+    "ppa"
   ]
 };
+
+const TRACKED_BENEFIT_VARIABLES = [
+  "rsa",
+  "aide_logement",
+  "af",
+  "ars",
+  "aspa",
+  "asi",
+  "paje_base",
+  "ppa"
+];
 
 const BENEFICIARY_ALIASES = {
   demandeur: [
@@ -1613,34 +1661,10 @@ export function buildOpenFiscaPayload(rawJson) {
   const statutOccupationLogement =
     normalized.statut_occupation_logement || "non_renseigne";
 
-  const rsaEntry = getPrestationEntry(prestationsRecues, "menage", "rsa");
-  const aideLogementEntry = getPrestationEntry(
-    prestationsRecues,
-    "menage",
-    "aide_logement"
-  );
-  const afEntry = getPrestationEntry(prestationsRecues, "menage", "af");
-
   const familles = {
     famille_1: {
       parents: ["individu_1", "individu_2"],
-      enfants: enfantsIds,
-      rsa: createPeriodValues(
-        "rsa",
-        rsaEntry && rsaEntry.mentionnee
-          ? getPrestationPayloadAmount(rsaEntry)
-          : null
-      ),
-      aide_logement: createPeriodValues(
-        "aide_logement",
-        aideLogementEntry && aideLogementEntry.mentionnee
-          ? getPrestationPayloadAmount(aideLogementEntry)
-          : null
-      ),
-      af: createPeriodValues(
-        "af",
-        afEntry && afEntry.mentionnee ? getPrestationPayloadAmount(afEntry) : null
-      )
+      enfants: enfantsIds
     }
   };
 
@@ -1662,6 +1686,50 @@ export function buildOpenFiscaPayload(rawJson) {
       )
     }
   };
+
+  const applyBenefitValue = (target, variableName, entry) => {
+    if (!target) {
+      return;
+    }
+
+    const value = entry && entry.mentionnee ? getPrestationPayloadAmount(entry) : null;
+    target[variableName] = createPeriodValues(variableName, value);
+  };
+
+  TRACKED_BENEFIT_VARIABLES.forEach((benefitId) => {
+    const meta = variablesMeta?.[benefitId] || {};
+    const entity = meta.entity || (benefitId === "asi" ? "individu" : "famille");
+
+    if (entity === "famille") {
+      const entry = getPrestationEntry(prestationsRecues, "menage", benefitId);
+      applyBenefitValue(familles.famille_1, benefitId, entry);
+      return;
+    }
+
+    if (entity === "menage") {
+      const entry = getPrestationEntry(prestationsRecues, "menage", benefitId);
+      applyBenefitValue(menages.menage_1, benefitId, entry);
+      return;
+    }
+
+    if (entity === "individu") {
+      const demandeurEntry = getPrestationEntry(prestationsRecues, "demandeur", benefitId);
+      const conjointEntry = getPrestationEntry(prestationsRecues, "conjoint", benefitId);
+
+      Object.entries(individus).forEach(([individuId, individuValues]) => {
+        let entry;
+        if (individuId === "individu_1") {
+          entry = demandeurEntry;
+        } else if (individuId === "individu_2") {
+          entry = conjointEntry;
+        } else {
+          entry = undefined;
+        }
+
+        applyBenefitValue(individuValues, benefitId, entry);
+      });
+    }
+  });
 
   // Retourner le payload plat attendu par OpenFisca
   const payload = {
