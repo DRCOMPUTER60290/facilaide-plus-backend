@@ -141,7 +141,11 @@ export async function describeOpenFiscaResult(
         },
         {
           role: "user",
-          content: `Résume en français clair le résultat OpenFisca ci-dessous pour une personne qui ne connaît pas les termes techniques. Mentionne les aides pertinentes et les montants importants. Si la liste "availableBenefits" est vide, indique explicitement qu'aucune aide supplémentaire n'est disponible pour cette situation sans laisser penser que les aides déjà perçues disparaissent. Distingue clairement les aides déjà perçues (dans "result") des aides potentielles (dans "availableBenefits").
+          content: `Résume en français clair le résultat OpenFisca ci-dessous pour une personne qui ne connaît pas les termes techniques. Mentionne les aides pertinentes et les montants importants.
+- Distingue explicitement les aides déjà perçues (dans "result") des aides potentielles (dans "availableBenefits").
+- Si une aide majeure (RSA, allocations familiales, aide au logement/APL) est absente de "availableBenefits" ou vaut zéro dans "result", explique précisément pourquoi elle n'est pas accessible en t'appuyant sur les données du foyer (revenus y compris AAH, composition familiale, statut de logement, etc.).
+- Appuie chaque explication d'inéligibilité sur les informations chiffrées ou catégorielles du foyer présentes dans les données fournies.
+- Si la liste "availableBenefits" est vide, indique explicitement qu'aucune aide supplémentaire n'est disponible pour cette situation sans laisser penser que les aides déjà perçues disparaissent.
 
 Résultat complet:
 ${stringify(result)}
