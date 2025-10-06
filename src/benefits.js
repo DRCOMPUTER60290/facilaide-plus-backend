@@ -120,7 +120,31 @@ export function extractAvailableBenefits(result, options = {}) {
   const meta = getVariablesMeta();
   const benefitDefinitions = buildBenefitDefinitions(meta);
 
-  const entities = result?.entities || {};
+  const relevantCollectionKeys = Object.values(ENTITY_COLLECTION_KEYS);
+
+  const rootObject = result && typeof result === "object" ? result : {};
+  const entitiesFromResult =
+    rootObject.entities && typeof rootObject.entities === "object" ? rootObject.entities : {};
+
+  const entities = {};
+
+  for (const key of relevantCollectionKeys) {
+    const fromRoot = rootObject[key];
+    const fromEntities = entitiesFromResult[key];
+
+    const normalizedRoot = fromRoot && typeof fromRoot === "object" ? fromRoot : undefined;
+    const normalizedEntities =
+      fromEntities && typeof fromEntities === "object" ? fromEntities : undefined;
+
+    if (!normalizedRoot && !normalizedEntities) {
+      continue;
+    }
+
+    entities[key] = {
+      ...(normalizedRoot || {}),
+      ...(normalizedEntities || {})
+    };
+  }
   const availableBenefits = [];
 
   for (const benefit of benefitDefinitions) {

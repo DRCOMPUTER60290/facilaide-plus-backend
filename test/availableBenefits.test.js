@@ -122,3 +122,76 @@ test("extractAvailableBenefits gère les variables annuelles", () => {
     }
   ]);
 });
+
+test("extractAvailableBenefits prend en compte les collections d'entités à la racine", () => {
+  const now = new Date("2024-03-10T10:00:00Z");
+  const currentMonth = getCurrentMonthKey(now);
+
+  const result = {
+    individus: {
+      individu_1: {
+        aah: {
+          [currentMonth]: { value: 400 }
+        }
+      },
+      individu_2: {
+        aah: {
+          [currentMonth]: 50
+        },
+        af: {
+          [currentMonth]: 0
+        }
+      }
+    },
+    familles: {
+      famille_1: {
+        rsa: {
+          [currentMonth]: { value: 600 }
+        }
+      },
+      famille_2: {
+        rsa: {
+          [currentMonth]: -20
+        }
+      }
+    },
+    autre_propriete: {
+      doit_etre_ignoree: true
+    },
+    entities: {
+      individus: {
+        individu_3: {
+          aah: {
+            [currentMonth]: { value: 20 }
+          }
+        }
+      },
+      familles: {
+        famille_3: {
+          rsa: {
+            [currentMonth]: 50
+          }
+        }
+      }
+    }
+  };
+
+  const benefits = extractAvailableBenefits(result, { now });
+
+  assert.deepEqual(benefits, [
+    {
+      id: "aah",
+      label: "Allocation adulte handicapé mensualisée",
+      entity: "individu",
+      period: currentMonth,
+      amount: 470
+    },
+    {
+      id: "rsa",
+      label: "Revenu de solidarité active",
+      entity: "famille",
+      period: currentMonth,
+      amount: 650
+    }
+  ]);
+});
