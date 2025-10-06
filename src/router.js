@@ -172,6 +172,8 @@ function findChildName(rawJson = {}, index) {
     ["enfants", childNumber - 1, "prenom"],
     ["enfants", childNumber - 1, "first_name"],
     ["enfants", childNumber - 1, "firstname"],
+    ["enfants_details", childNumber - 1, "prenom"],
+    ["enfants_prenoms", childNumber - 1],
     ["situation", "enfants", childNumber - 1],
     ["situation", "enfants", childNumber - 1, "prenom"],
     ["situation", "enfants", childNumber - 1, "first_name"],
@@ -228,7 +230,7 @@ function findChildName(rawJson = {}, index) {
   return undefined;
 }
 
-function buildPersonLabels(rawJson = {}, payload = {}) {
+export function buildPersonLabels(rawJson = {}, payload = {}) {
   const labels = { ...DEFAULT_PERSON_LABELS };
 
   const individu1Name = findRoleName(rawJson, "demandeur");
@@ -295,7 +297,7 @@ function buildTokenVariants(token) {
   return Array.from(variants).filter(Boolean);
 }
 
-function formatExplanation(explanation, personLabels = {}) {
+export function formatExplanation(explanation, personLabels = {}) {
   if (typeof explanation !== "string") {
     return explanation;
   }

@@ -26,9 +26,11 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
   "age_conjoint": number | null,
   "date_naissance": string | null, // Format ISO AAAA-MM-JJ si connu
   "date_naissance_conjoint": string | null,
+  "prenom_demandeur": string | null,
+  "prenom_conjoint": string | null,
   "nombre_enfants": number | null,
   "enfants": [
-    { "age": number | null, "date_naissance": string | null }
+    { "age": number | null, "date_naissance": string | null, "prenom": string | null }
   ],
   "prestations_recues": [
     {
@@ -64,9 +66,9 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
     "conjoint": { "salaire_de_base": number | null }
   },
   "situation": {
-    "demandeur": { "age": number | null, "date_naissance": string | null },
-    "conjoint": { "age": number | null, "date_naissance": string | null },
-    "enfants": [ { "age": number | null, "date_naissance": string | null } ]
+    "demandeur": { "age": number | null, "date_naissance": string | null, "prenom": string | null },
+    "conjoint": { "age": number | null, "date_naissance": string | null, "prenom": string | null },
+    "enfants": [ { "age": number | null, "date_naissance": string | null, "prenom": string | null } ]
   }
 }
 - Utilise impérativement "prestations_recues" pour les aides déjà perçues et "prestations_a_demander" pour celles seulement envisagées.
