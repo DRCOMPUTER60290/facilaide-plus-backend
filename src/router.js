@@ -1,5 +1,5 @@
 import express from "express";
-import { callOpenAI } from "./openai.js";
+import { callOpenAI, describeOpenFiscaResult } from "./openai.js";
 import { callOpenFisca } from "./openfisca.js";
 import { buildOpenFiscaPayload } from "./variables.js";
 import extractAvailableBenefits from "./benefits.js";
@@ -48,7 +48,15 @@ router.post("/simulate", async (req, res) => {
     const result = await callOpenFisca(payload);
     const availableBenefits = extractAvailableBenefits(result, payload);
 
-    res.json({ payload, result, availableBenefits });
+    let explanation = null;
+    try {
+      explanation = await describeOpenFiscaResult(result, availableBenefits);
+    } catch (error) {
+      console.error("Impossible de générer l'explication en langage naturel:", error.message);
+      explanation = null;
+    }
+
+    res.json({ payload, result, availableBenefits, explanation });
 
   } catch (error) {
     res.status(500).json({ error: error.message });
