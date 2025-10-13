@@ -59,7 +59,8 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
       "heberge_gratuitement" |
       "sans_domicile" |
       "autre" | null,
-    "commentaire": string | null // Détails textuels éventuels (ex: "locataire dans le privé")
+    "commentaire": string | null, // Détails textuels éventuels (ex: "locataire dans le privé")
+    "loyer": number | null // Montant du loyer mensuel si la personne est locataire ou assimilée
   },
   "revenu": {
     "demandeur": { "salaire_de_base": number | null },
@@ -78,7 +79,7 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
 - Ne mets pas de balises Markdown (\`\`\`json).
 - Ne renvoie que du JSON brut (objet { ... }).
 - Les dates de naissance doivent être exprimées au format ISO AAAA-MM-JJ lorsqu'elles sont connues.
-- Utilise le champ "logement.statut" pour indiquer le statut d'occupation, en choisissant la valeur la plus précise disponible dans la liste proposée (utilise "autre" uniquement si aucune des valeurs ne correspond clairement).
+- Lorsque "logement.statut" correspond à une situation de location (locataire, locataire_hlm, locataire_meuble ou locataire_foyer), renseigne "logement.loyer" avec le montant mensuel payé si l'information est disponible. Utilise null sinon ou lorsque la personne n'est pas locataire.
 - Renseigne "logement.statut" à null si l'information n'est pas fournie.
 `
         },
