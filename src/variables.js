@@ -166,6 +166,189 @@ function toNumber(value) {
   return undefined;
 }
 
+function sanitizeRentKey(key) {
+  if (key === undefined || key === null) {
+    return "";
+  }
+
+  return key
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function extractRentAmount(candidate, depth = 0) {
+  if (candidate === undefined || candidate === null || candidate === "") {
+    return undefined;
+  }
+
+  if (depth > 6) {
+    return undefined;
+  }
+
+  if (typeof candidate === "number" || typeof candidate === "string") {
+    const parsed = toNumber(candidate);
+    return parsed === undefined ? undefined : parsed;
+  }
+
+  if (Array.isArray(candidate)) {
+    for (const item of candidate) {
+      const amount = extractRentAmount(item, depth + 1);
+      if (amount !== undefined) {
+        return amount;
+      }
+    }
+    return undefined;
+  }
+
+  if (typeof candidate === "object") {
+    const directKeys = [
+      "montant",
+      "amount",
+      "value",
+      "valeur",
+      "mensualite",
+      "mensualite_credit",
+      "mensualite_emprunt",
+      "mensualite_logement",
+      "mensualite_mensuelle",
+      "mensualites",
+      "mensualite_pret",
+      "mensualite_du_credit"
+    ];
+
+    for (const key of directKeys) {
+      if (Object.prototype.hasOwnProperty.call(candidate, key)) {
+        const amount = extractRentAmount(candidate[key], depth + 1);
+        if (amount !== undefined) {
+          return amount;
+        }
+      }
+    }
+
+    for (const [key, value] of Object.entries(candidate)) {
+      const normalizedKey = sanitizeRentKey(key);
+      if (
+        normalizedKey.includes("loyer") ||
+        normalizedKey.includes("rent") ||
+        normalizedKey.includes("mensualite")
+      ) {
+        const amount = extractRentAmount(value, depth + 1);
+        if (amount !== undefined) {
+          return amount;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeDepcom(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+
+    const asString = String(Math.trunc(Math.abs(value)));
+    if (!asString) {
+      return null;
+    }
+
+    return asString.padStart(5, "0").slice(-5);
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const sanitized = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+  const primaryMatch = sanitized.match(/(\d{2}[A-Z]\d{2}|\d{5})/);
+  if (primaryMatch) {
+    return primaryMatch[1];
+  }
+
+  const digitsOnly = sanitized.replace(/[^0-9]/g, "");
+  if (!digitsOnly) {
+    return null;
+  }
+
+  if (digitsOnly.length >= 5) {
+    return digitsOnly.slice(0, 5);
+  }
+
+  return digitsOnly.padStart(5, "0");
+}
+
+function extractDepcom(candidate, depth = 0) {
+  if (candidate === undefined || candidate === null) {
+    return null;
+  }
+
+  if (depth > 4) {
+    return null;
+  }
+
+  if (typeof candidate === "string" || typeof candidate === "number") {
+    return normalizeDepcom(candidate);
+  }
+
+  if (Array.isArray(candidate)) {
+    for (const item of candidate) {
+      const extracted = extractDepcom(item, depth + 1);
+      if (extracted) {
+        return extracted;
+      }
+    }
+    return null;
+  }
+
+  if (typeof candidate === "object") {
+    const prioritizedKeys = [
+      "depcom",
+      "code_insee",
+      "codeInsee",
+      "code",
+      "value",
+      "valeur"
+    ];
+
+    for (const key of prioritizedKeys) {
+      if (Object.prototype.hasOwnProperty.call(candidate, key)) {
+        const extracted = extractDepcom(candidate[key], depth + 1);
+        if (extracted) {
+          return extracted;
+        }
+      }
+    }
+
+    for (const value of Object.values(candidate)) {
+      const extracted = extractDepcom(value, depth + 1);
+      if (extracted) {
+        return extracted;
+      }
+    }
+  }
+
+  return null;
+}
+
 const HOUSING_STATUS_CODES = new Set([
   "non_renseigne",
   "primo_accedant",
@@ -225,6 +408,17 @@ const HOUSING_STATUS_ALIASES = {
   autre: "non_renseigne",
   non_renseigne: "non_renseigne"
 };
+
+const TENANT_HOUSING_STATUSES = new Set([
+  "locataire_vide",
+  "locataire_meuble",
+  "locataire_hlm",
+  "locataire_foyer"
+]);
+
+function isTenantHousingStatus(status) {
+  return TENANT_HOUSING_STATUSES.has(status);
+}
 
 function sanitizeHousingStatusCandidate(value) {
   if (value === undefined || value === null) {
@@ -1069,15 +1263,15 @@ function normalizeUserInput(rawJson = {}) {
 
   let logementStatutBrut = getValueByPaths(source, logementStatutPaths);
 
-  if (logementStatutBrut === undefined) {
-    const logementSection = getValueByPaths(source, [
-      ["logement"],
-      ["situation", "logement"],
-      ["menage", "logement"],
-      ["habitation"],
-      ["housing"]
-    ]);
+  const logementSection = getValueByPaths(source, [
+    ["logement"],
+    ["situation", "logement"],
+    ["menage", "logement"],
+    ["habitation"],
+    ["housing"]
+  ]);
 
+  if (logementStatutBrut === undefined) {
     if (
       typeof logementSection === "string" ||
       typeof logementSection === "number"
@@ -1097,6 +1291,117 @@ function normalizeUserInput(rawJson = {}) {
   }
 
   const statutOccupationLogement = normalizeHousingStatus(logementStatutBrut);
+
+  const rentCandidatePaths = [
+    ["loyer"],
+    ["montant_loyer"],
+    ["loyer_mensuel"],
+    ["loyer", "montant"],
+    ["loyer", "amount"],
+    ["loyer", "value"],
+    ["loyer", "valeur"],
+    ["logement", "loyer"],
+    ["logement", "montant_loyer"],
+    ["logement", "loyer_mensuel"],
+    ["logement", "loyer", "montant"],
+    ["logement", "loyer", "amount"],
+    ["logement", "loyer", "value"],
+    ["logement", "loyer", "valeur"],
+    ["logement", "mensualite"],
+    ["logement", "mensualite_credit"],
+    ["logement", "mensualite_emprunt"],
+    ["logement", "mensualite_logement"],
+    ["logement", "mensualite_mensuelle"],
+    ["habitation", "loyer"],
+    ["habitation", "montant_loyer"],
+    ["habitation", "loyer_mensuel"],
+    ["menage", "loyer"],
+    ["menage", "montant_loyer"],
+    ["menage", "loyer_mensuel"],
+    ["situation", "loyer"],
+    ["situation", "montant_loyer"],
+    ["situation", "loyer_mensuel"],
+    ["situation", "logement", "loyer"],
+    ["situation", "logement", "montant_loyer"],
+    ["situation", "logement", "loyer_mensuel"],
+    ["situation", "menage", "loyer"],
+    ["situation", "menage", "montant_loyer"],
+    ["situation", "menage", "loyer_mensuel"],
+    ["depenses", "logement", "loyer"],
+    ["depenses", "logement", "montant_loyer"],
+    ["depenses", "logement", "loyer_mensuel"],
+    ["depenses_logement", "loyer"],
+    ["depenses_logement", "montant_loyer"],
+    ["depenses_logement", "loyer_mensuel"]
+  ];
+
+  const rentCandidates = rentCandidatePaths
+    .map((path) => getValueByPaths(source, [path]))
+    .filter((value) => value !== undefined && value !== null);
+
+  if (logementSection !== undefined && logementSection !== null) {
+    rentCandidates.push(logementSection);
+  }
+
+  let montantLoyer;
+  for (const candidate of rentCandidates) {
+    const parsed = extractRentAmount(candidate);
+    if (parsed !== undefined && Number.isFinite(parsed)) {
+      montantLoyer = parsed < 0 ? 0 : parsed;
+      break;
+    }
+  }
+
+  const depcomCandidatePaths = [
+    ["depcom"],
+    ["code_insee"],
+    ["codeInsee"],
+    ["logement", "depcom"],
+    ["logement", "code_insee"],
+    ["logement", "codeInsee"],
+    ["logement", "adresse", "depcom"],
+    ["logement", "adresse", "code_insee"],
+    ["logement", "adresse", "codeInsee"],
+    ["logement", "commune", "depcom"],
+    ["logement", "commune", "code_insee"],
+    ["logement", "commune", "codeInsee"],
+    ["menage", "depcom"],
+    ["menage", "code_insee"],
+    ["menage", "codeInsee"],
+    ["menage", "logement", "depcom"],
+    ["menage", "logement", "code_insee"],
+    ["menage", "logement", "codeInsee"],
+    ["situation", "depcom"],
+    ["situation", "code_insee"],
+    ["situation", "codeInsee"],
+    ["situation", "logement", "depcom"],
+    ["situation", "logement", "code_insee"],
+    ["situation", "logement", "codeInsee"],
+    ["adresse", "depcom"],
+    ["adresse", "code_insee"],
+    ["adresse", "codeInsee"],
+    ["commune", "depcom"],
+    ["commune", "code_insee"],
+    ["commune", "codeInsee"]
+  ];
+
+  let depcom = null;
+  for (const path of depcomCandidatePaths) {
+    const candidate = getValueByPaths(source, [path]);
+    const extracted = extractDepcom(candidate);
+    if (extracted) {
+      depcom = extracted;
+      break;
+    }
+  }
+
+  if (!depcom && logementSection !== undefined && logementSection !== null) {
+    depcom = extractDepcom(logementSection);
+  }
+
+  if (!depcom) {
+    depcom = "60100";
+  }
 
   const salaireDemandeur = toNumber(
     getValueByPaths(source, [
@@ -1563,7 +1868,9 @@ function normalizeUserInput(rawJson = {}) {
     enfants_prenoms: enfantsPrenoms,
     prestations_recues: prestationsRecues,
     prestations_a_demander: prestationsADemander,
-    statut_occupation_logement: statutOccupationLogement
+    statut_occupation_logement: statutOccupationLogement,
+    loyer: montantLoyer ?? null,
+    depcom
   };
 }
 
@@ -1625,6 +1932,7 @@ export function buildOpenFiscaPayload(rawJson) {
   const age2 = normalized.age_conjoint;
   const nbEnfants = normalized.nombre_enfants || 0;
   const enfantsAges = normalized.enfants || [];
+  const montantLoyer = normalized.loyer;
 
   // Construire les individus
   const individus = {
@@ -1696,6 +2004,16 @@ export function buildOpenFiscaPayload(rawJson) {
       )
     }
   };
+
+  menages.menage_1.depcom = createPeriodValues("depcom", normalized.depcom);
+
+  if (
+    isTenantHousingStatus(statutOccupationLogement) &&
+    typeof montantLoyer === "number" &&
+    Number.isFinite(montantLoyer)
+  ) {
+    menages.menage_1.loyer = createPeriodValues("loyer", montantLoyer);
+  }
 
   const applyBenefitValue = (target, variableName, entry) => {
     if (!target) {
