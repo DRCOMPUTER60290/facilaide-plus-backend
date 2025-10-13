@@ -166,6 +166,369 @@ function toNumber(value) {
   return undefined;
 }
 
+const DEFAULT_DEPCOM = "60100";
+
+function normalizeCommuneNameKey(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  const stringValue =
+    typeof value === "string" || value instanceof String
+      ? value
+      : String(value);
+
+  return stringValue
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const COMMUNE_NAME_TO_DEPCOM = new Map(
+  [
+    ["Laigneville", "60342"],
+    ["Paris", "75056"],
+    ["Marseille", "13055"],
+    ["Lyon", "69123"],
+    ["Toulouse", "31555"],
+    ["Nice", "06088"],
+    ["Nantes", "44109"],
+    ["Strasbourg", "67482"],
+    ["Montpellier", "34172"],
+    ["Bordeaux", "33063"],
+    ["Lille", "59350"]
+  ].map(([label, depcom]) => [normalizeCommuneNameKey(label), depcom])
+);
+
+const COMMUNE_CONTEXT_PREFIXES = new Set([
+  "A",
+  "AU",
+  "AUX",
+  "EN",
+  "DANS",
+  "DE",
+  "DES",
+  "DU",
+  "SUR",
+  "SOUS",
+  "CHEZ",
+  "D",
+  "HABITE",
+  "HABITONS",
+  "HABITENT",
+  "HABITERA",
+  "HABITER",
+  "HABITERAI",
+  "HABITERAS",
+  "HABITERONT",
+  "HABITERAIT",
+  "HABITERIONS",
+  "HABITEREZ",
+  "VIT",
+  "VIS",
+  "VIVONS",
+  "VIVENT",
+  "VIVRE",
+  "RESIDE",
+  "RESIDONS",
+  "RESIDENT",
+  "RESIDENTE",
+  "RESIDENTS",
+  "RESIDENCE",
+  "LOGE",
+  "LOGEONS",
+  "LOGENT",
+  "LOGER",
+  "SEJOURNE",
+  "SEJOURNONS",
+  "SEJOURNENT",
+  "RESTE",
+  "RESTONS",
+  "RESTENT",
+  "VILLE",
+  "COMMUNE"
+]);
+
+const COMMUNE_CONTEXT_SUFFIXES = new Set([
+  "VILLE",
+  "COMMUNE",
+  "METROPOLE",
+  "AGGLOMERATION"
+]);
+
+function resolveDepcomFromCommuneText(candidate) {
+  if (candidate === undefined || candidate === null) {
+    return null;
+  }
+
+  const normalized = normalizeCommuneNameKey(candidate);
+  if (!normalized) {
+    return null;
+  }
+
+  const direct = COMMUNE_NAME_TO_DEPCOM.get(normalized);
+  if (direct) {
+    return direct;
+  }
+
+  const tokens = normalized.split(" ");
+  for (let length = Math.min(4, tokens.length); length >= 1; length -= 1) {
+    for (let start = 0; start <= tokens.length - length; start += 1) {
+      const slice = tokens.slice(start, start + length).join(" ");
+      const depcom = COMMUNE_NAME_TO_DEPCOM.get(slice);
+      if (depcom) {
+        const isolatedMatch = tokens.length === length;
+        const hasContextBefore =
+          start > 0 && COMMUNE_CONTEXT_PREFIXES.has(tokens[start - 1]);
+        const hasContextAfter =
+          start + length < tokens.length &&
+          COMMUNE_CONTEXT_SUFFIXES.has(tokens[start + length]);
+
+        if (isolatedMatch || length > 1 || hasContextBefore || hasContextAfter) {
+          return depcom;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+const TENANT_HOUSING_STATUS_CODES = new Set([
+  "locataire_vide",
+  "locataire_meuble",
+  "locataire_hlm",
+  "locataire_foyer"
+]);
+
+function isTenantHousingStatus(value) {
+  return TENANT_HOUSING_STATUS_CODES.has(value);
+}
+
+function normalizeDepcomCandidate(value) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    const stringified = String(Math.trunc(Math.abs(value)));
+    if (!stringified) {
+      return null;
+    }
+    return stringified.padStart(5, "0").slice(-5);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const depcomFromCommune = resolveDepcomFromCommuneText(trimmed);
+    if (depcomFromCommune) {
+      return depcomFromCommune;
+    }
+
+    const sanitized = trimmed
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
+
+    const primaryMatch = sanitized.match(/(\d{2}[A-Z]\d{2}|\d{5})/);
+    if (primaryMatch) {
+      return primaryMatch[1];
+    }
+
+    const digits = sanitized.replace(/[^0-9]/g, "");
+    if (!digits) {
+      return null;
+    }
+
+    if (digits.length >= 5) {
+      return digits.slice(0, 5);
+    }
+
+    return digits.padStart(5, "0");
+  }
+
+  if (typeof value === "object") {
+    const prioritizedKeys = [
+      "depcom",
+      "code_insee",
+      "codeInsee",
+      "code",
+      "code_postal",
+      "postal_code",
+      "value",
+      "valeur",
+      "nom",
+      "name",
+      "libelle",
+      "libelle_commune",
+      "commune",
+      "ville"
+    ];
+
+    for (const key of prioritizedKeys) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) {
+        const extracted = normalizeDepcomCandidate(value[key]);
+        if (extracted) {
+          return extracted;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractDepcom(source, logementSection) {
+  const candidatePaths = [
+    ["depcom"],
+    ["code_postal"],
+    ["code_insee"],
+    ["codeInsee"],
+    ["commune"],
+    ["ville"],
+    ["localite"],
+    ["localite", "nom"],
+    ["message"],
+    ["texte"],
+    ["logement", "depcom"],
+    ["logement", "code_postal"],
+    ["logement", "code_insee"],
+    ["logement", "codeInsee"],
+    ["menage", "depcom"],
+    ["menage", "code_postal"],
+    ["menage", "code_insee"],
+    ["menage", "codeInsee"],
+    ["situation", "depcom"],
+    ["situation", "code_postal"],
+    ["situation", "code_insee"],
+    ["situation", "codeInsee"],
+    ["situation", "logement", "depcom"],
+    ["situation", "logement", "code_postal"],
+    ["situation", "logement", "code_insee"],
+    ["situation", "logement", "codeInsee"],
+    ["adresse", "depcom"],
+    ["adresse", "code_postal"],
+    ["adresse", "code_insee"],
+    ["adresse", "codeInsee"],
+    ["commune", "depcom"],
+    ["commune", "code_postal"],
+    ["commune", "code_insee"],
+    ["commune", "codeInsee"]
+  ];
+
+  for (const path of candidatePaths) {
+    const candidate = getValueByPaths(source, [path]);
+    const normalized = normalizeDepcomCandidate(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  if (logementSection && typeof logementSection === "object") {
+    const nested = normalizeDepcomCandidate(logementSection);
+    if (nested) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function extractRentAmount(candidate) {
+  if (candidate === undefined || candidate === null) {
+    return undefined;
+  }
+
+  if (typeof candidate === "number" || typeof candidate === "string") {
+    return toNumber(candidate);
+  }
+
+  if (Array.isArray(candidate)) {
+    for (const item of candidate) {
+      const amount = extractRentAmount(item);
+      if (amount !== undefined) {
+        return amount;
+      }
+    }
+    return undefined;
+  }
+
+  if (typeof candidate === "object") {
+    const directKeys = ["montant", "amount", "value", "valeur"];
+    for (const key of directKeys) {
+      if (Object.prototype.hasOwnProperty.call(candidate, key)) {
+        const amount = extractRentAmount(candidate[key]);
+        if (amount !== undefined) {
+          return amount;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function extractRent(source, logementSection) {
+  const rentPaths = [
+    ["loyer"],
+    ["montant_loyer"],
+    ["loyer_mensuel"],
+    ["loyer", "montant"],
+    ["loyer", "amount"],
+    ["loyer", "value"],
+    ["loyer", "valeur"],
+    ["logement", "loyer"],
+    ["logement", "montant_loyer"],
+    ["logement", "loyer_mensuel"],
+    ["logement", "loyer", "montant"],
+    ["logement", "loyer", "amount"],
+    ["logement", "loyer", "value"],
+    ["logement", "loyer", "valeur"],
+    ["menage", "loyer"],
+    ["menage", "montant_loyer"],
+    ["menage", "loyer_mensuel"],
+    ["situation", "loyer"],
+    ["situation", "montant_loyer"],
+    ["situation", "loyer_mensuel"],
+    ["situation", "logement", "loyer"],
+    ["situation", "logement", "montant_loyer"],
+    ["situation", "logement", "loyer_mensuel"],
+    ["depenses", "logement", "loyer"],
+    ["depenses", "logement", "montant_loyer"],
+    ["depenses", "logement", "loyer_mensuel"],
+    ["depenses_logement", "loyer"],
+    ["depenses_logement", "montant_loyer"],
+    ["depenses_logement", "loyer_mensuel"]
+  ];
+
+  for (const path of rentPaths) {
+    const candidate = getValueByPaths(source, [path]);
+    const amount = extractRentAmount(candidate);
+    if (amount !== undefined) {
+      return amount;
+    }
+  }
+
+  if (logementSection && typeof logementSection === "object") {
+    const amount = extractRentAmount(logementSection.loyer);
+    if (amount !== undefined) {
+      return amount;
+    }
+  }
+
+  return undefined;
+}
+
 const HOUSING_STATUS_CODES = new Set([
   "non_renseigne",
   "primo_accedant",
@@ -1067,17 +1430,17 @@ function normalizeUserInput(rawJson = {}) {
     ["housing", "statut"]
   ];
 
+  const logementSection = getValueByPaths(source, [
+    ["logement"],
+    ["situation", "logement"],
+    ["menage", "logement"],
+    ["habitation"],
+    ["housing"]
+  ]);
+
   let logementStatutBrut = getValueByPaths(source, logementStatutPaths);
 
   if (logementStatutBrut === undefined) {
-    const logementSection = getValueByPaths(source, [
-      ["logement"],
-      ["situation", "logement"],
-      ["menage", "logement"],
-      ["habitation"],
-      ["housing"]
-    ]);
-
     if (
       typeof logementSection === "string" ||
       typeof logementSection === "number"
@@ -1097,6 +1460,9 @@ function normalizeUserInput(rawJson = {}) {
   }
 
   const statutOccupationLogement = normalizeHousingStatus(logementStatutBrut);
+
+  const depcom = extractDepcom(source, logementSection) ?? DEFAULT_DEPCOM;
+  const rentAmount = extractRent(source, logementSection);
 
   const salaireDemandeur = toNumber(
     getValueByPaths(source, [
@@ -1563,7 +1929,9 @@ function normalizeUserInput(rawJson = {}) {
     enfants_prenoms: enfantsPrenoms,
     prestations_recues: prestationsRecues,
     prestations_a_demander: prestationsADemander,
-    statut_occupation_logement: statutOccupationLogement
+    statut_occupation_logement: statutOccupationLogement,
+    depcom,
+    loyer: rentAmount ?? null
   };
 }
 
@@ -1685,6 +2053,9 @@ export function buildOpenFiscaPayload(rawJson) {
     }
   };
 
+  const depcomCode = normalized.depcom || DEFAULT_DEPCOM;
+  const montantLoyer = normalized.loyer;
+
   const menages = {
     menage_1: {
       personne_de_reference: ["individu_1"],
@@ -1693,9 +2064,18 @@ export function buildOpenFiscaPayload(rawJson) {
       statut_occupation_logement: createPeriodValues(
         "statut_occupation_logement",
         statutOccupationLogement
-      )
+      ),
+      depcom: createPeriodValues("depcom", depcomCode)
     }
   };
+
+  if (
+    isTenantHousingStatus(statutOccupationLogement) &&
+    typeof montantLoyer === "number" &&
+    Number.isFinite(montantLoyer)
+  ) {
+    menages.menage_1.loyer = createPeriodValues("loyer", montantLoyer);
+  }
 
   const applyBenefitValue = (target, variableName, entry) => {
     if (!target) {

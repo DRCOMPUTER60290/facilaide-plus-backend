@@ -22,6 +22,7 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
   "salaire_de_base_conjoint": number | null,
   "aah": number | null, // Allocation aux adultes handicapés du demandeur (prestation sociale, distincte d'un salaire)
   "aah_conjoint": number | null, // Allocation aux adultes handicapés du conjoint (prestation sociale, distincte d'un salaire)
+  "code_postal": string | number | null, // Code postal à cinq chiffres correspondant à la commune de résidence lorsque celle-ci est identifiable
   "age": number | null,
   "age_conjoint": number | null,
   "date_naissance": string | null, // Format ISO AAAA-MM-JJ si connu
@@ -59,7 +60,8 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
       "heberge_gratuitement" |
       "sans_domicile" |
       "autre" | null,
-    "commentaire": string | null // Détails textuels éventuels (ex: "locataire dans le privé")
+    "commentaire": string | null, // Détails textuels éventuels (ex: "locataire dans le privé")
+    "loyer": number | null // Montant du loyer mensuel si la personne est locataire ou assimilée
   },
   "revenu": {
     "demandeur": { "salaire_de_base": number | null },
@@ -78,7 +80,8 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
 - Ne mets pas de balises Markdown (\`\`\`json).
 - Ne renvoie que du JSON brut (objet { ... }).
 - Les dates de naissance doivent être exprimées au format ISO AAAA-MM-JJ lorsqu'elles sont connues.
-- Utilise le champ "logement.statut" pour indiquer le statut d'occupation, en choisissant la valeur la plus précise disponible dans la liste proposée (utilise "autre" uniquement si aucune des valeurs ne correspond clairement).
+- Lorsque la commune de résidence est mentionnée, renseigne "code_postal" avec le code postal le plus probable (format à cinq chiffres). Utilise null si l'information est absente ou incertaine.
+- Lorsque "logement.statut" correspond à une situation de location (locataire, locataire_hlm, locataire_meuble ou locataire_foyer), renseigne "logement.loyer" avec le montant mensuel payé si l'information est disponible. Utilise null sinon ou lorsque la personne n'est pas locataire.
 - Renseigne "logement.statut" à null si l'information n'est pas fournie.
 `
         },
