@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 
+import { normalizePostalCode } from "./geography.js";
+
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -92,7 +94,9 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
     let output = response.choices[0].message.content.trim();
     output = output.replace(/```json|```/g, "").trim();
 
-    return JSON.parse(output);
+    const parsed = JSON.parse(output);
+
+    return normalizePostalCode(parsed, userMessage);
 
   } catch (error) {
     console.error("Erreur OpenAI:", error.message);
