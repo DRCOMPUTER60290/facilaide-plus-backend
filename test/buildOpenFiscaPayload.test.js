@@ -212,14 +212,6 @@ test("menage depcom defaults to 60100 and honors provided code", () => {
     numericPayload?.menages?.menage_1?.depcom?.[currentMonth],
     "13055"
   );
-
-  const postalPayload = buildOpenFiscaPayload({
-    code_postal: "60290"
-  });
-  assert.strictEqual(
-    postalPayload?.menages?.menage_1?.depcom?.[currentMonth],
-    "60290"
-  );
 });
 
 test("commune mentioned in free text populates depcom", () => {

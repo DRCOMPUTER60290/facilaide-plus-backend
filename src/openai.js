@@ -80,7 +80,6 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
 - Ne mets pas de balises Markdown (\`\`\`json).
 - Ne renvoie que du JSON brut (objet { ... }).
 - Les dates de naissance doivent être exprimées au format ISO AAAA-MM-JJ lorsqu'elles sont connues.
-- Lorsque la commune de résidence est mentionnée, renseigne "code_postal" avec le code postal le plus probable (format à cinq chiffres). Utilise null si l'information est absente ou incertaine.
 - Lorsque "logement.statut" correspond à une situation de location (locataire, locataire_hlm, locataire_meuble ou locataire_foyer), renseigne "logement.loyer" avec le montant mensuel payé si l'information est disponible. Utilise null sinon ou lorsque la personne n'est pas locataire.
 - Renseigne "logement.statut" à null si l'information n'est pas fournie.
 `
