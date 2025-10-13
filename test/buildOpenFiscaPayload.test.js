@@ -187,6 +187,33 @@ test("housing status defaults to non_renseigne when not provided", () => {
   );
 });
 
+test("menage depcom defaults to 60100 and honors provided code", () => {
+  const now = new Date();
+  const currentMonth = getCurrentMonthKey(now);
+
+  const defaultPayload = buildOpenFiscaPayload({});
+  assert.strictEqual(
+    defaultPayload?.menages?.menage_1?.depcom?.[currentMonth],
+    "60100"
+  );
+
+  const providedPayload = buildOpenFiscaPayload({
+    logement: { depcom: "75056" }
+  });
+  assert.strictEqual(
+    providedPayload?.menages?.menage_1?.depcom?.[currentMonth],
+    "75056"
+  );
+
+  const numericPayload = buildOpenFiscaPayload({
+    depcom: 13055
+  });
+  assert.strictEqual(
+    numericPayload?.menages?.menage_1?.depcom?.[currentMonth],
+    "13055"
+  );
+});
+
 test("tenant households expose rent in menage payload", () => {
   const now = new Date();
   const currentMonth = getCurrentMonthKey(now);
@@ -215,8 +242,5 @@ test("tenant households expose rent in menage payload", () => {
     logement: { statut: "proprietaire" }
   });
 
-  assert.strictEqual(
-    ownerPayload?.menages?.menage_1?.loyer,
-    undefined
-  );
+  assert.strictEqual(ownerPayload?.menages?.menage_1?.loyer, undefined);
 });
