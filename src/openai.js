@@ -22,6 +22,7 @@ Analyse le texte utilisateur et génère uniquement un objet JSON **valide** qui
   "salaire_de_base_conjoint": number | null,
   "aah": number | null, // Allocation aux adultes handicapés du demandeur (prestation sociale, distincte d'un salaire)
   "aah_conjoint": number | null, // Allocation aux adultes handicapés du conjoint (prestation sociale, distincte d'un salaire)
+  "code_postal": string | number | null, // Code postal à cinq chiffres correspondant à la commune de résidence lorsque celle-ci est identifiable
   "age": number | null,
   "age_conjoint": number | null,
   "date_naissance": string | null, // Format ISO AAAA-MM-JJ si connu
