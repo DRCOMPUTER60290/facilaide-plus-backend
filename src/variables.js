@@ -434,6 +434,17 @@ const HOUSING_STATUS_ALIASES = {
   non_renseigne: "non_renseigne"
 };
 
+const TENANT_HOUSING_STATUSES = new Set([
+  "locataire_vide",
+  "locataire_meuble",
+  "locataire_hlm",
+  "locataire_foyer"
+]);
+
+function isTenantHousingStatus(status) {
+  return TENANT_HOUSING_STATUSES.has(status);
+}
+
 function sanitizeHousingStatusCandidate(value) {
   if (value === undefined || value === null) {
     return "";
@@ -1838,6 +1849,7 @@ export function buildOpenFiscaPayload(rawJson) {
   const age2 = normalized.age_conjoint;
   const nbEnfants = normalized.nombre_enfants || 0;
   const enfantsAges = normalized.enfants || [];
+  const montantLoyer = normalized.loyer;
 
   // Construire les individus
   const individus = {
