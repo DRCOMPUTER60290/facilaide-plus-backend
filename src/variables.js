@@ -168,6 +168,135 @@ function toNumber(value) {
 
 const DEFAULT_DEPCOM = "60100";
 
+function normalizeCommuneNameKey(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  const stringValue =
+    typeof value === "string" || value instanceof String
+      ? value
+      : String(value);
+
+  return stringValue
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const COMMUNE_NAME_TO_DEPCOM = new Map(
+  [
+    ["Laigneville", "60342"],
+    ["Paris", "75056"],
+    ["Marseille", "13055"],
+    ["Lyon", "69123"],
+    ["Toulouse", "31555"],
+    ["Nice", "06088"],
+    ["Nantes", "44109"],
+    ["Strasbourg", "67482"],
+    ["Montpellier", "34172"],
+    ["Bordeaux", "33063"],
+    ["Lille", "59350"]
+  ].map(([label, depcom]) => [normalizeCommuneNameKey(label), depcom])
+);
+
+const COMMUNE_CONTEXT_PREFIXES = new Set([
+  "A",
+  "AU",
+  "AUX",
+  "EN",
+  "DANS",
+  "DE",
+  "DES",
+  "DU",
+  "SUR",
+  "SOUS",
+  "CHEZ",
+  "D",
+  "HABITE",
+  "HABITONS",
+  "HABITENT",
+  "HABITERA",
+  "HABITER",
+  "HABITERAI",
+  "HABITERAS",
+  "HABITERONT",
+  "HABITERAIT",
+  "HABITERIONS",
+  "HABITEREZ",
+  "VIT",
+  "VIS",
+  "VIVONS",
+  "VIVENT",
+  "VIVRE",
+  "RESIDE",
+  "RESIDONS",
+  "RESIDENT",
+  "RESIDENTE",
+  "RESIDENTS",
+  "RESIDENCE",
+  "LOGE",
+  "LOGEONS",
+  "LOGENT",
+  "LOGER",
+  "SEJOURNE",
+  "SEJOURNONS",
+  "SEJOURNENT",
+  "RESTE",
+  "RESTONS",
+  "RESTENT",
+  "VILLE",
+  "COMMUNE"
+]);
+
+const COMMUNE_CONTEXT_SUFFIXES = new Set([
+  "VILLE",
+  "COMMUNE",
+  "METROPOLE",
+  "AGGLOMERATION"
+]);
+
+function resolveDepcomFromCommuneText(candidate) {
+  if (candidate === undefined || candidate === null) {
+    return null;
+  }
+
+  const normalized = normalizeCommuneNameKey(candidate);
+  if (!normalized) {
+    return null;
+  }
+
+  const direct = COMMUNE_NAME_TO_DEPCOM.get(normalized);
+  if (direct) {
+    return direct;
+  }
+
+  const tokens = normalized.split(" ");
+  for (let length = Math.min(4, tokens.length); length >= 1; length -= 1) {
+    for (let start = 0; start <= tokens.length - length; start += 1) {
+      const slice = tokens.slice(start, start + length).join(" ");
+      const depcom = COMMUNE_NAME_TO_DEPCOM.get(slice);
+      if (depcom) {
+        const isolatedMatch = tokens.length === length;
+        const hasContextBefore =
+          start > 0 && COMMUNE_CONTEXT_PREFIXES.has(tokens[start - 1]);
+        const hasContextAfter =
+          start + length < tokens.length &&
+          COMMUNE_CONTEXT_SUFFIXES.has(tokens[start + length]);
+
+        if (isolatedMatch || length > 1 || hasContextBefore || hasContextAfter) {
+          return depcom;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 const TENANT_HOUSING_STATUS_CODES = new Set([
   "locataire_vide",
   "locataire_meuble",
@@ -201,6 +330,11 @@ function normalizeDepcomCandidate(value) {
       return null;
     }
 
+    const depcomFromCommune = resolveDepcomFromCommuneText(trimmed);
+    if (depcomFromCommune) {
+      return depcomFromCommune;
+    }
+
     const sanitized = trimmed
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -230,7 +364,13 @@ function normalizeDepcomCandidate(value) {
       "codeInsee",
       "code",
       "value",
-      "valeur"
+      "valeur",
+      "nom",
+      "name",
+      "libelle",
+      "libelle_commune",
+      "commune",
+      "ville"
     ];
 
     for (const key of prioritizedKeys) {
@@ -251,6 +391,12 @@ function extractDepcom(source, logementSection) {
     ["depcom"],
     ["code_insee"],
     ["codeInsee"],
+    ["commune"],
+    ["ville"],
+    ["localite"],
+    ["localite", "nom"],
+    ["message"],
+    ["texte"],
     ["logement", "depcom"],
     ["logement", "code_insee"],
     ["logement", "codeInsee"],

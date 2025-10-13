@@ -214,6 +214,21 @@ test("menage depcom defaults to 60100 and honors provided code", () => {
   );
 });
 
+test("commune mentioned in free text populates depcom", () => {
+  const now = new Date();
+  const currentMonth = getCurrentMonthKey(now);
+
+  const payload = buildOpenFiscaPayload({
+    message:
+      "Je m'appelle Sophie et j'habite à Laigneville dans l'Oise avec mes enfants."
+  });
+
+  assert.strictEqual(
+    payload?.menages?.menage_1?.depcom?.[currentMonth],
+    "60342"
+  );
+});
+
 test("tenant households expose rent in menage payload", () => {
   const now = new Date();
   const currentMonth = getCurrentMonthKey(now);
