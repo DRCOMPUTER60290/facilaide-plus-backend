@@ -298,3 +298,71 @@ test("tenant households expose rent in menage payload", () => {
 
   assert.strictEqual(ownerPayload?.menages?.menage_1?.loyer, undefined);
 });
+
+test("single parent households do not create a phantom second parent", () => {
+  const payload = buildOpenFiscaPayload({
+    message: "Je vis seule avec mon enfant.",
+    salaire_de_base: 400,
+    nombre_enfants: 1,
+    enfants: [{ age: 7 }],
+    logement: { statut: "locataire" }
+  });
+
+  assert.ok(payload?.individus?.individu_1, "individu_1 should exist");
+  assert.strictEqual(
+    payload?.individus?.individu_2,
+    undefined,
+    "individu_2 should not be created for a single parent"
+  );
+
+  assert.deepEqual(
+    payload?.familles?.famille_1?.parents,
+    ["individu_1"],
+    "only the demandeur should be listed as parent"
+  );
+
+  assert.deepEqual(
+    payload?.foyers_fiscaux?.foyer_fiscal_1?.declarants,
+    ["individu_1"],
+    "only the demandeur should declare taxes"
+  );
+
+  assert.deepEqual(
+    payload?.menages?.menage_1?.conjoint,
+    [],
+    "single parent households should expose an empty conjoint array"
+  );
+});
+
+test("explicit conjoint information keeps both parents in the payload", () => {
+  const payload = buildOpenFiscaPayload({
+    salaire_de_base: 1200,
+    salaire_de_base_conjoint: 0,
+    age_conjoint: 34,
+    nombre_enfants: 0
+  });
+
+  assert.ok(payload?.individus?.individu_1, "individu_1 should be present");
+  assert.ok(
+    payload?.individus?.individu_2,
+    "individu_2 should be present when conjoint data exists"
+  );
+
+  assert.deepEqual(
+    payload?.familles?.famille_1?.parents,
+    ["individu_1", "individu_2"],
+    "both parents should be listed when a conjoint is provided"
+  );
+
+  assert.deepEqual(
+    payload?.foyers_fiscaux?.foyer_fiscal_1?.declarants,
+    ["individu_1", "individu_2"],
+    "both adults should appear as declarants"
+  );
+
+  assert.deepEqual(
+    payload?.menages?.menage_1?.conjoint,
+    ["individu_2"],
+    "the menage should reference the conjoint"
+  );
+});

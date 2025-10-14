@@ -1398,6 +1398,137 @@ function normalizeUserInput(rawJson = {}) {
     prestationsADemanderEntries
   );
 
+  const hasMeaningfulConjointSection = (value) => {
+    if (value === undefined || value === null) {
+      return false;
+    }
+
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return true;
+    }
+
+    if (typeof value === "string") {
+      return value.trim().length > 0;
+    }
+
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+
+    if (typeof value === "object") {
+      return Object.keys(value).length > 0;
+    }
+
+    return false;
+  };
+
+  const normalizeStatusCandidate = (value) => {
+    if (value === undefined || value === null) {
+      return "";
+    }
+
+    const stringValue =
+      typeof value === "string" || value instanceof String
+        ? value
+        : String(value);
+
+    return stringValue
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  };
+
+  const interpretMaritalStatus = (normalized) => {
+    if (!normalized) {
+      return null;
+    }
+
+    const singleKeywords = [
+      "celibataire",
+      "seul",
+      "seule",
+      "separe",
+      "separee",
+      "separes",
+      "divorce",
+      "divorcee",
+      "divorces",
+      "veuf",
+      "veuve",
+      "isole",
+      "isolee",
+      "monoparentale",
+      "monoparental",
+      "sans conjoint",
+      "sans partenaire"
+    ];
+
+    const coupleKeywords = [
+      "marie",
+      "mariee",
+      "maries",
+      "pacs",
+      "couple",
+      "concubin",
+      "concubine",
+      "union libre",
+      "en couple",
+      "conjoint",
+      "partenaire"
+    ];
+
+    if (singleKeywords.some((keyword) => normalized.includes(keyword))) {
+      return "single";
+    }
+
+    if (coupleKeywords.some((keyword) => normalized.includes(keyword))) {
+      return "couple";
+    }
+
+    return null;
+  };
+
+  const evaluateMaritalStatus = (candidate) => {
+    if (candidate === undefined || candidate === null) {
+      return null;
+    }
+
+    if (
+      typeof candidate === "string" ||
+      typeof candidate === "number" ||
+      typeof candidate === "boolean"
+    ) {
+      return interpretMaritalStatus(normalizeStatusCandidate(candidate));
+    }
+
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        const evaluation = evaluateMaritalStatus(item);
+        if (evaluation) {
+          return evaluation;
+        }
+      }
+      return null;
+    }
+
+    if (typeof candidate === "object") {
+      for (const value of Object.values(candidate)) {
+        const evaluation = evaluateMaritalStatus(value);
+        if (evaluation) {
+          return evaluation;
+        }
+      }
+    }
+
+    return null;
+  };
+
   const logementStatutPaths = [
     ["logement", "statut"],
     ["logement", "status"],
@@ -1979,6 +2110,8 @@ export function buildOpenFiscaPayload(rawJson) {
 
   const prestationsRecues =
     normalized.prestations_recues || createEmptyPrestationsContainer();
+  const prestationsADemander =
+    normalized.prestations_a_demander || createEmptyPrestationsContainer();
 
   // Récupérer les données utilisateur
   const salaire1 = normalized.salaire_de_base;
