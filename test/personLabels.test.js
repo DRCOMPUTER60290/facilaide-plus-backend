@@ -30,3 +30,21 @@ test("buildPersonLabels utilise les prénoms fournis dans rawJson", () => {
 
   assert.strictEqual(formatted, "Alice et Bob ont aidé Chloé.");
 });
+
+test("buildPersonLabels supprime le label du conjoint lorsque absent du payload", () => {
+  const rawJson = {
+    prenom_demandeur: "Sophie"
+  };
+
+  const payload = {
+    individus: {
+      individu_1: {},
+      enfant_1: {}
+    }
+  };
+
+  const labels = buildPersonLabels(rawJson, payload);
+
+  assert.strictEqual(labels.individu_1, "Sophie");
+  assert.ok(!Object.prototype.hasOwnProperty.call(labels, "individu_2"));
+});
