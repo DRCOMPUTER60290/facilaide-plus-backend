@@ -37,6 +37,15 @@ def _normalize_variables(raw: Any) -> List[str]:
     return []
 
 
+def _decode_bytes(value: Any) -> Any:
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            return value.decode("utf-8")
+        except UnicodeDecodeError:
+            return value.decode("latin-1", errors="replace")
+    return value
+
+
 def _safe_number(value: Any) -> Any:
     try:
         import numpy
@@ -46,6 +55,8 @@ def _safe_number(value: Any) -> Any:
     if numpy is not None and isinstance(value, numpy.generic):
         value = value.item()
 
+    value = _decode_bytes(value)
+
     if isinstance(value, float):
         if math.isnan(value) or math.isinf(value):
             return None
@@ -53,6 +64,12 @@ def _safe_number(value: Any) -> Any:
 
     if isinstance(value, (int, bool)):
         return value
+
+    if isinstance(value, str):
+        return value
+
+    if isinstance(value, (bytes, bytearray)):
+        return _decode_bytes(value)
 
     return value
 
