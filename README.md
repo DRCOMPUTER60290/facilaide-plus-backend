@@ -70,66 +70,29 @@ français clair généré automatiquement (ou `null` si la génération échoue)
 
 ## Déploiement sur Render
 
-### Installation des dépendances
+Pour une exécution 100 % locale d’OpenFisca sur Render, assurez-vous que :
 
-Les instances Node de Render fournissent déjà Python 3.10. Pour préparer le
-bundle OpenFisca-France durant le build, adaptez le **Build Command** de votre
-service Render comme suit (menu **Settings** → **Build & Deploy**) :
+1. Le build installe les dépendances Python dans `openfisca-france`, par
+   exemple en ajoutant la commande suivante dans le script de build Render
+   (avant `npm install`) :
 
-```bash
-pip install --upgrade pip
-pip install -e ./openfisca-france
-npm install
-```
+   ```bash
+   pip install -e ./openfisca-france
+   ```
 
-La première ligne garantit que `pip` est à jour, la seconde installe OpenFisca
-France et toutes ses dépendances Python (y compris `openfisca-core`), et la
-troisième installe les packages Node habituels. Le **Start Command** peut rester
-sur `npm start`.
+2. Les variables d’environnement suivantes sont définies dans l’onglet
+   **Environment** du service Render :
 
-### Variables d’environnement à configurer
+   | Variable | Valeur recommandée | Commentaire |
+   | --- | --- | --- |
+   | `OPENAI_API_KEY` | `<votre clé OpenAI>` | Obligatoire pour la génération du JSON et des explications. |
+   | `OPENFISCA_USE_LOCAL` | `true` | Force l’usage du simulateur Python embarqué (valeur par défaut si la variable est absente). |
+   | `OPENFISCA_BASE_URL` | *(optionnelle)* | Laisser vide, sauf si vous souhaitez garder une URL de secours vers une instance OpenFisca distante. |
+   | `OPENFISCA_PYTHON_PATH` | *(optionnelle)* | À définir uniquement si le binaire Python n’est pas accessible via `python3`. |
+   | `PORT` | `10000` (ou valeur fournie par Render) | Render impose cette variable pour exposer le service HTTP. |
 
-Dans l’onglet **Environment** de Render, vérifiez/ajoutez les variables
-suivantes :
-
-| Variable | Valeur recommandée | Commentaire |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | `<votre clé OpenAI>` | Obligatoire pour la génération du JSON et des explications. |
-| `OPENFISCA_USE_LOCAL` | `true` | Force l’usage du simulateur Python embarqué (valeur par défaut si la variable est absente). |
-| `OPENFISCA_BASE_URL` | *(optionnelle)* | Laisser vide, sauf si vous souhaitez garder une URL de secours vers une instance OpenFisca distante. |
-| `OPENFISCA_PYTHON_PATH` | *(optionnelle)* | À définir uniquement si le binaire Python n’est pas accessible via `python3`. |
-| `PORT` | `10000` (ou valeur fournie par Render) | Render impose cette variable pour exposer le service HTTP. |
-
-### Fichier `render.yaml` (facultatif mais recommandé)
-
-Vous pouvez versionner la configuration Render avec un fichier `render.yaml` à
-la racine du dépôt. Ce fichier n’est pas obligatoire, mais il évite les erreurs
-de configuration en pré-remplissant les commandes et les variables
-d’environnement. Un exemple minimal est fourni ci-dessous et disponible dans le
-répertoire du projet :
-
-```yaml
-services:
-  - type: web
-    name: facilaide-plus-backend
-    runtime: node
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -e ./openfisca-france
-      npm install
-    startCommand: npm start
-    envVars:
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: OPENFISCA_USE_LOCAL
-        value: "true"
-      - key: PORT
-        value: "10000"
-```
-
-Importez ce fichier via **New +** → **Blueprint** sur Render pour créer le
-service préconfiguré, puis complétez la valeur réelle de `OPENAI_API_KEY` après
-le déploiement initial.
+Avec cette configuration, Render exécutera le script Python local, sans appeler
+l’API publique OpenFisca.
 
 ## Tests Postman
 

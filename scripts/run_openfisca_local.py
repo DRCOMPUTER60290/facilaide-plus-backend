@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import math
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, MutableMapping, Sequence
 
@@ -45,12 +45,6 @@ def _safe_number(value: Any) -> Any:
 
     if numpy is not None and isinstance(value, numpy.generic):
         value = value.item()
-
-    if isinstance(value, (bytes, bytearray)):
-        try:
-            return value.decode("utf-8")
-        except UnicodeDecodeError:
-            return value.hex()
 
     if isinstance(value, float):
         if math.isnan(value) or math.isinf(value):
@@ -141,7 +135,7 @@ def main() -> None:
     current_month = request.get("currentMonth")
     current_year = request.get("currentYear")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     if not isinstance(current_month, str) or not current_month:
         current_month = f"{now.year}-{now.month:02d}"
     if not isinstance(current_year, str) or not current_year:
@@ -172,9 +166,7 @@ def main() -> None:
     result: Dict[str, Any] = {
         "metadata": {
             "source": "openfisca-local",
-            "generated_at": datetime.now(timezone.utc)
-            .isoformat(timespec="seconds")
-            .replace("+00:00", "Z")
+            "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z"
         },
         "entities": {}
     }
