@@ -1840,6 +1840,137 @@ function normalizeUserInput(rawJson = {}) {
     return null;
   };
 
+  const hasMeaningfulConjointSection = (value) => {
+    if (value === undefined || value === null) {
+      return false;
+    }
+
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return true;
+    }
+
+    if (typeof value === "string") {
+      return value.trim().length > 0;
+    }
+
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+
+    if (typeof value === "object") {
+      return Object.keys(value).length > 0;
+    }
+
+    return false;
+  };
+
+  const normalizeStatusCandidate = (value) => {
+    if (value === undefined || value === null) {
+      return "";
+    }
+
+    const stringValue =
+      typeof value === "string" || value instanceof String
+        ? value
+        : String(value);
+
+    return stringValue
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  };
+
+  const interpretMaritalStatus = (normalized) => {
+    if (!normalized) {
+      return null;
+    }
+
+    const singleKeywords = [
+      "celibataire",
+      "seul",
+      "seule",
+      "separe",
+      "separee",
+      "separes",
+      "divorce",
+      "divorcee",
+      "divorces",
+      "veuf",
+      "veuve",
+      "isole",
+      "isolee",
+      "monoparentale",
+      "monoparental",
+      "sans conjoint",
+      "sans partenaire"
+    ];
+
+    const coupleKeywords = [
+      "marie",
+      "mariee",
+      "maries",
+      "pacs",
+      "couple",
+      "concubin",
+      "concubine",
+      "union libre",
+      "en couple",
+      "conjoint",
+      "partenaire"
+    ];
+
+    if (singleKeywords.some((keyword) => normalized.includes(keyword))) {
+      return "single";
+    }
+
+    if (coupleKeywords.some((keyword) => normalized.includes(keyword))) {
+      return "couple";
+    }
+
+    return null;
+  };
+
+  const evaluateMaritalStatus = (candidate) => {
+    if (candidate === undefined || candidate === null) {
+      return null;
+    }
+
+    if (
+      typeof candidate === "string" ||
+      typeof candidate === "number" ||
+      typeof candidate === "boolean"
+    ) {
+      return interpretMaritalStatus(normalizeStatusCandidate(candidate));
+    }
+
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        const evaluation = evaluateMaritalStatus(item);
+        if (evaluation) {
+          return evaluation;
+        }
+      }
+      return null;
+    }
+
+    if (typeof candidate === "object") {
+      for (const value of Object.values(candidate)) {
+        const evaluation = evaluateMaritalStatus(value);
+        if (evaluation) {
+          return evaluation;
+        }
+      }
+    }
+
+    return null;
+  };
+
   const logementStatutPaths = [
     ["logement", "statut"],
     ["logement", "status"],
@@ -2346,77 +2477,39 @@ function normalizeUserInput(rawJson = {}) {
     prenom: enfantsPrenoms[index]
   }));
 
-  const maritalStatusCandidate = getValueByPaths(source, [
-    ["statut_marital"],
-    ["statut_matrimonial"],
-    ["situation", "statut_marital"],
-    ["situation", "statut_matrimonial"],
-    ["situation", "marital_status"],
-    ["menage", "statut_marital"],
-    ["menage", "statut_matrimonial"],
-    ["menage", "marital_status"],
-    ["famille", "statut_marital"],
-    ["famille", "statut_matrimonial"]
-  ]);
-  const maritalStatus = evaluateMaritalStatus(maritalStatusCandidate);
+  const hasConjointPrestations = Object.keys(
+    prestationsRecues?.conjoint || {}
+  ).length > 0;
 
-  const conjointSections = [
-    getValueByPaths(source, [["conjoint"]]),
-    getValueByPaths(source, [["situation", "conjoint"]]),
-    getValueByPaths(source, [["personnes", "conjoint"]]),
-    getValueByPaths(source, [["menage", "conjoint"]])
-  ];
-
-  const hasConjointSection = conjointSections.some((section) =>
-    hasMeaningfulConjointSection(section)
-  );
-
-  const hasConjointIncome = salaireConjoint !== undefined;
-  const hasConjointAah = aahConjoint !== null;
-  const hasConjointAge = isValidAge(ageConjoint);
-  const hasConjointBirthdate = Boolean(dateNaissanceConjointIso);
-  const hasConjointName = Boolean(prenomConjoint);
-  const hasConjointPrestations =
-    Object.keys(prestationsRecues.conjoint || {}).length > 0 ||
-    Object.keys(prestationsADemander.conjoint || {}).length > 0;
-
-  let hasConjoint =
-    hasConjointSection ||
-    hasConjointIncome ||
-    hasConjointAah ||
-    hasConjointAge ||
-    hasConjointBirthdate ||
-    hasConjointName ||
-    hasConjointPrestations;
-
-  if (maritalStatus === "single") {
-    hasConjoint = false;
-  } else if (maritalStatus === "couple") {
-    hasConjoint = true;
-  }
+  const hasConjoint =
+    hasConjointPrestations ||
+    salaireConjoint !== undefined ||
+    (aahConjoint !== null && aahConjoint !== undefined) ||
+    isValidAge(ageConjoint) ||
+    !!dateNaissanceConjointIso ||
+    !!prenomConjoint;
 
   return {
     salaire_de_base: salaireDemandeur ?? 0,
-    salaire_de_base_conjoint: salaireConjoint ?? null,
+    salaire_de_base_conjoint: hasConjoint ? salaireConjoint ?? 0 : null,
     aah: aahDemandeur ?? null,
-    aah_conjoint: aahConjoint ?? null,
+    aah_conjoint: hasConjoint ? aahConjoint ?? null : null,
     age: ageDemandeur ?? 30,
-    age_conjoint: ageConjoint ?? null,
+    age_conjoint: hasConjoint ? ageConjoint ?? 30 : null,
     date_naissance: dateNaissanceDemandeurIso ?? null,
-    date_naissance_conjoint: dateNaissanceConjointIso ?? null,
+    date_naissance_conjoint: hasConjoint ? dateNaissanceConjointIso ?? null : null,
     prenom_demandeur: prenomDemandeur ?? null,
-    prenom_conjoint: prenomConjoint ?? null,
+    prenom_conjoint: hasConjoint ? prenomConjoint ?? null : null,
     nombre_enfants: nombreEnfants,
     enfants: enfantsAges,
     enfants_details: enfantsDetails,
     enfants_prenoms: enfantsPrenoms,
     prestations_recues: prestationsRecues,
     prestations_a_demander: prestationsADemander,
-    has_conjoint: hasConjoint,
     statut_occupation_logement: statutOccupationLogement,
     depcom,
     loyer: rentAmount ?? null,
-    charges_locatives: chargesAmount ?? null
+    has_conjoint: hasConjoint
   };
 }
 
@@ -2478,28 +2571,9 @@ export function buildOpenFiscaPayload(rawJson) {
       : normalized.aah_conjoint;
   const age1 = normalized.age;
   const age2 = normalized.age_conjoint;
+  const hasConjoint = Boolean(normalized.has_conjoint);
   const nbEnfants = normalized.nombre_enfants || 0;
   const enfantsAges = normalized.enfants || [];
-
-  const hasExplicitConjointFlag = normalized.has_conjoint;
-  const hasConjointData =
-    (salaire2 !== undefined && salaire2 !== null) ||
-    (aah2 !== undefined && aah2 !== null) ||
-    isValidAge(age2) ||
-    Boolean(normalized.date_naissance_conjoint) ||
-    Boolean(normalized.prenom_conjoint);
-  const hasConjointBenefits =
-    Object.keys(prestationsRecues.conjoint || {}).length > 0 ||
-    Object.keys(prestationsADemander.conjoint || {}).length > 0;
-
-  let shouldIncludeConjoint;
-  if (hasExplicitConjointFlag === true) {
-    shouldIncludeConjoint = true;
-  } else if (hasExplicitConjointFlag === false) {
-    shouldIncludeConjoint = false;
-  } else {
-    shouldIncludeConjoint = hasConjointData || hasConjointBenefits;
-  }
 
   // Construire les individus
   const individus = {
@@ -2510,7 +2584,7 @@ export function buildOpenFiscaPayload(rawJson) {
     }
   };
 
-  if (shouldIncludeConjoint) {
+  if (hasConjoint) {
     individus.individu_2 = {
       salaire_de_base: createResourcePeriodValues("salaire_de_base", salaire2),
       age: createPeriodValues("age", age2),
@@ -2549,32 +2623,29 @@ export function buildOpenFiscaPayload(rawJson) {
   const statutOccupationLogement =
     normalized.statut_occupation_logement || "non_renseigne";
 
-  const parentsIds = shouldIncludeConjoint
-    ? ["individu_1", "individu_2"]
-    : ["individu_1"];
-
   const familles = {
     famille_1: {
-      parents: parentsIds,
+      parents: hasConjoint ? ["individu_1", "individu_2"] : ["individu_1"],
       enfants: enfantsIds
     }
   };
 
   const foyers_fiscaux = {
     foyer_fiscal_1: {
-      declarants: parentsIds,
+      declarants: hasConjoint
+        ? ["individu_1", "individu_2"]
+        : ["individu_1"],
       personnes_a_charge: enfantsIds
     }
   };
 
   const depcomCode = normalized.depcom || DEFAULT_DEPCOM;
   const montantLoyer = normalized.loyer;
-  const montantCharges = normalized.charges_locatives;
 
   const menages = {
     menage_1: {
       personne_de_reference: ["individu_1"],
-      conjoint: shouldIncludeConjoint ? ["individu_2"] : [],
+      conjoint: hasConjoint ? ["individu_2"] : [],
       enfants: enfantsIds,
       statut_occupation_logement: createPeriodValues(
         "statut_occupation_logement",
@@ -2590,17 +2661,6 @@ export function buildOpenFiscaPayload(rawJson) {
     Number.isFinite(montantLoyer)
   ) {
     menages.menage_1.loyer = createPeriodValues("loyer", montantLoyer);
-  }
-
-  if (
-    isTenantHousingStatus(statutOccupationLogement) &&
-    typeof montantCharges === "number" &&
-    Number.isFinite(montantCharges)
-  ) {
-    menages.menage_1.charges_locatives = createPeriodValues(
-      "charges_locatives",
-      montantCharges
-    );
   }
 
   const applyBenefitValue = (target, variableName, entry) => {

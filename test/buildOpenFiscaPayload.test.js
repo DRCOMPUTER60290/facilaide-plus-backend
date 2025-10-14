@@ -187,6 +187,45 @@ test("housing status defaults to non_renseigne when not provided", () => {
   );
 });
 
+test("single-parent households omit the second adulte by default", () => {
+  const payload = buildOpenFiscaPayload({
+    salaire_de_base: 400,
+    age: 32,
+    nombre_enfants: 3,
+    enfants: [{ age: 15 }, { age: 10 }, { age: 5 }],
+    logement: { statut: "locataire", loyer: 500 }
+  });
+
+  const individus = payload?.individus || {};
+  assert.ok(individus.individu_1, "individu_1 should exist for the demandeur");
+  assert.ok(
+    !Object.prototype.hasOwnProperty.call(individus, "individu_2"),
+    "individu_2 should be absent when no conjoint information is provided"
+  );
+
+  const familleParents = payload?.familles?.famille_1?.parents || [];
+  assert.deepEqual(
+    familleParents,
+    ["individu_1"],
+    "Only the demandeur should appear in the parents array"
+  );
+
+  const foyerDeclarants = payload?.foyers_fiscaux?.foyer_fiscal_1?.declarants || [];
+  assert.deepEqual(
+    foyerDeclarants,
+    ["individu_1"],
+    "Foyer fiscal declarants should include only the demandeur"
+  );
+
+  const menageConjoint = payload?.menages?.menage_1?.conjoint;
+  assert.ok(Array.isArray(menageConjoint), "Menage conjoint property should be an array");
+  assert.strictEqual(
+    menageConjoint.length,
+    0,
+    "Menage conjoint array should be empty for single-parent households"
+  );
+});
+
 test("menage depcom defaults to 60100 and honors provided code", () => {
   const now = new Date();
   const currentMonth = getCurrentMonthKey(now);
@@ -295,6 +334,74 @@ test("free text message extracts rent and housing charges", () => {
   assert.strictEqual(
     payload?.menages?.menage_1?.charges_locatives?.[currentMonth],
     100
+  );
+});
+
+test("single parent households do not create a phantom second parent", () => {
+  const payload = buildOpenFiscaPayload({
+    message: "Je vis seule avec mon enfant.",
+    salaire_de_base: 400,
+    nombre_enfants: 1,
+    enfants: [{ age: 7 }],
+    logement: { statut: "locataire" }
+  });
+
+  assert.ok(payload?.individus?.individu_1, "individu_1 should exist");
+  assert.strictEqual(
+    payload?.individus?.individu_2,
+    undefined,
+    "individu_2 should not be created for a single parent"
+  );
+
+  assert.deepEqual(
+    payload?.familles?.famille_1?.parents,
+    ["individu_1"],
+    "only the demandeur should be listed as parent"
+  );
+
+  assert.deepEqual(
+    payload?.foyers_fiscaux?.foyer_fiscal_1?.declarants,
+    ["individu_1"],
+    "only the demandeur should declare taxes"
+  );
+
+  assert.deepEqual(
+    payload?.menages?.menage_1?.conjoint,
+    [],
+    "single parent households should expose an empty conjoint array"
+  );
+});
+
+test("explicit conjoint information keeps both parents in the payload", () => {
+  const payload = buildOpenFiscaPayload({
+    salaire_de_base: 1200,
+    salaire_de_base_conjoint: 0,
+    age_conjoint: 34,
+    nombre_enfants: 0
+  });
+
+  assert.ok(payload?.individus?.individu_1, "individu_1 should be present");
+  assert.ok(
+    payload?.individus?.individu_2,
+    "individu_2 should be present when conjoint data exists"
+  );
+
+  assert.deepEqual(
+    payload?.familles?.famille_1?.parents,
+    ["individu_1", "individu_2"],
+    "both parents should be listed when a conjoint is provided"
+  );
+
+  assert.deepEqual(
+    payload?.foyers_fiscaux?.foyer_fiscal_1?.declarants,
+    ["individu_1", "individu_2"],
+    "both adults should appear as declarants"
+  );
+
+  assert.deepEqual(
+    payload?.menages?.menage_1?.conjoint,
+    ["individu_2"],
+    "the menage should reference the conjoint"
   );
 });
 
