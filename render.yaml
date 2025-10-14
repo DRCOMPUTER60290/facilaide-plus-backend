@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: facilaide-plus-backend
+    runtime: node
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -e ./openfisca-france
+      npm install
+    startCommand: npm start
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENFISCA_USE_LOCAL
+        value: "true"
+      - key: PORT
+        value: "10000"
