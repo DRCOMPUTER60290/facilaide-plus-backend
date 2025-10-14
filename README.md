@@ -67,3 +67,72 @@ L’appel `POST /simulate` renvoie désormais un objet contenant :
 période en cours (mois ou année selon la variable). Seuls les montants
 strictement positifs sont conservés. Le champ `explanation` fournit un résumé en
 français clair généré automatiquement (ou `null` si la génération échoue).
+
+## Déploiement sur Render
+
+Pour une exécution 100 % locale d’OpenFisca sur Render, assurez-vous que :
+
+1. Le build installe les dépendances Python dans `openfisca-france`, par
+   exemple en ajoutant la commande suivante dans le script de build Render
+   (avant `npm install`) :
+
+   ```bash
+   pip install -e ./openfisca-france
+   ```
+
+2. Les variables d’environnement suivantes sont définies dans l’onglet
+   **Environment** du service Render :
+
+   | Variable | Valeur recommandée | Commentaire |
+   | --- | --- | --- |
+   | `OPENAI_API_KEY` | `<votre clé OpenAI>` | Obligatoire pour la génération du JSON et des explications. |
+   | `OPENFISCA_USE_LOCAL` | `true` | Force l’usage du simulateur Python embarqué (valeur par défaut si la variable est absente). |
+   | `OPENFISCA_BASE_URL` | *(optionnelle)* | Laisser vide, sauf si vous souhaitez garder une URL de secours vers une instance OpenFisca distante. |
+   | `OPENFISCA_PYTHON_PATH` | *(optionnelle)* | À définir uniquement si le binaire Python n’est pas accessible via `python3`. |
+   | `PORT` | `10000` (ou valeur fournie par Render) | Render impose cette variable pour exposer le service HTTP. |
+
+Avec cette configuration, Render exécutera le script Python local, sans appeler
+l’API publique OpenFisca.
+
+## Tests Postman
+
+L’API Express est exposée sous `/api`. Les deux points de terminaison principaux
+peuvent être testés dans Postman avec l’en-tête `Content-Type: application/json` :
+
+1. **Génération du JSON brut**
+
+   - Méthode : `POST`
+   - URL : `https://<votre-service>.onrender.com/api/generate-json`
+   - Corps (`raw` / JSON) :
+
+     ```json
+     {
+       "message": "Couple avec deux enfants, revenus de 1 500 € par mois, locataires à Lyon."
+     }
+     ```
+
+   - Réponse : `{ "json": { ... } }` contenant la structure interprétée par OpenAI.
+
+2. **Simulation OpenFisca**
+
+   - Méthode : `POST`
+   - URL : `https://<votre-service>.onrender.com/api/simulate`
+   - Corps (`raw` / JSON) :
+
+     ```json
+     {
+       "rawJson": {
+         "situation": {
+           "demandeur": {
+             "prenom": "Alice",
+             "statut_professionnel": "salarie",
+             "revenu_net_mensuel": 1500
+           }
+         }
+       }
+     }
+     ```
+
+   - Réponse : `{ "payload": { ... }, "result": { ... }, "availableBenefits": [ ... ], "explanation": "..." }`.
+
+Adaptez les URL si vous testez en local (`http://localhost:3001/api/...`).
