@@ -6,7 +6,7 @@ const ENTITY_COLLECTION_KEYS = {
   menage: "menages"
 };
 
-const DEFAULT_BENEFIT_VARIABLE_IDS = [
+export const DEFAULT_BENEFIT_VARIABLE_IDS = [
   "aah",
   "af",
   "aide_logement",
