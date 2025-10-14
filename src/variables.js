@@ -308,6 +308,272 @@ function isTenantHousingStatus(value) {
   return TENANT_HOUSING_STATUS_CODES.has(value);
 }
 
+const RENT_TEXT_KEYWORDS = [
+  "loyer",
+  "loyers",
+  "loyer mensuel",
+  "montant loyer",
+  "loyer par mois"
+];
+
+const CHARGES_TEXT_KEYWORDS = [
+  "charges locatives",
+  "charge locative",
+  "charges locatatives",
+  "charge locatative",
+  "charges logement",
+  "charges du logement",
+  "charges locat"
+];
+
+const HOUSING_AMOUNT_PRIORITIZED_KEYS = [
+  "montant",
+  "amount",
+  "value",
+  "valeur",
+  "quantite",
+  "quantite_mensuelle"
+];
+
+function parseLocalizedNumber(rawValue) {
+  if (!rawValue && rawValue !== 0) {
+    return undefined;
+  }
+
+  let sanitized = String(rawValue)
+    .replace(/\u00a0/g, " ")
+    .replace(/[^0-9,\.\-\s]/g, "")
+    .trim();
+
+  if (!sanitized) {
+    return undefined;
+  }
+
+  const separatorPositions = [];
+  for (let index = 0; index < sanitized.length; index += 1) {
+    const char = sanitized[index];
+    if (char === "," || char === ".") {
+      separatorPositions.push(index);
+    }
+  }
+
+  let integerPart = sanitized;
+  let fractionalPart = "";
+
+  if (separatorPositions.length > 0) {
+    const decimalIndex = separatorPositions[separatorPositions.length - 1];
+    integerPart = sanitized.slice(0, decimalIndex);
+    fractionalPart = sanitized.slice(decimalIndex + 1);
+  }
+
+  integerPart = integerPart.replace(/[^0-9\-]/g, "");
+  fractionalPart = fractionalPart.replace(/[^0-9]/g, "");
+
+  let normalized = integerPart || "";
+  if (fractionalPart) {
+    normalized += `.${fractionalPart}`;
+  }
+
+  normalized = normalized.replace(/(?!^)-/g, "");
+
+  if (!normalized || normalized === "-" || normalized === "." || normalized === "-.") {
+    return undefined;
+  }
+
+  if (normalized.startsWith(".")) {
+    normalized = `0${normalized}`;
+  } else if (normalized.startsWith("-.") && normalized.length > 2) {
+    normalized = `-0.${normalized.slice(2)}`;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function extractAmountFromTextWithSanitizedKeywords(text, sanitizedKeywords) {
+  if (typeof text !== "string" || sanitizedKeywords.length === 0) {
+    return undefined;
+  }
+
+  const amountPattern = /(-?\d{1,3}(?:[\s\u00A0.,]\d{3})*(?:[.,]\d+)?|-?\d+(?:[.,]\d+)?)(?:\s*(?:€|euros?|eur|e))?/gi;
+  const CONTEXT_WINDOW = 80;
+
+  let fallbackAmount;
+  let match;
+  while ((match = amountPattern.exec(text)) !== null) {
+    const start = match.index;
+    const end = amountPattern.lastIndex;
+    const beforeContext = normalizeTextForMatching(
+      text.slice(Math.max(0, start - CONTEXT_WINDOW), start)
+    );
+    const afterContext = normalizeTextForMatching(
+      text.slice(end, Math.min(text.length, end + CONTEXT_WINDOW))
+    );
+
+    const keywordBefore = sanitizedKeywords.some((keyword) =>
+      beforeContext.includes(keyword)
+    );
+    const keywordAfter = sanitizedKeywords.some((keyword) =>
+      afterContext.includes(keyword)
+    );
+
+    if (!keywordBefore && !keywordAfter) {
+      continue;
+    }
+
+    const parsed = parseLocalizedNumber(match[1]);
+    if (parsed !== undefined) {
+      if (keywordBefore) {
+        return parsed;
+      }
+
+      if (fallbackAmount === undefined) {
+        fallbackAmount = parsed;
+      }
+    }
+  }
+
+  return fallbackAmount;
+}
+
+function keyMatchesSanitizedKeywords(key, sanitizedKeywords) {
+  if (!key) {
+    return false;
+  }
+
+  const normalizedKey = normalizeTextForMatching(key);
+  if (!normalizedKey) {
+    return false;
+  }
+
+  return sanitizedKeywords.some((keyword) => normalizedKey.includes(keyword));
+}
+
+function internalExtractAmount(
+  candidate,
+  sanitizedKeywords,
+  prioritizedKeys,
+  visited,
+  contextMatched = false
+) {
+  if (candidate === undefined || candidate === null) {
+    return undefined;
+  }
+
+  if (typeof candidate === "number") {
+    return Number.isFinite(candidate) ? candidate : undefined;
+  }
+
+  if (typeof candidate === "string") {
+    const direct = toNumber(candidate);
+    if (direct !== undefined) {
+      return direct;
+    }
+
+    const amountFromText = extractAmountFromTextWithSanitizedKeywords(
+      candidate,
+      sanitizedKeywords
+    );
+    if (amountFromText !== undefined) {
+      return amountFromText;
+    }
+
+    return undefined;
+  }
+
+  if (Array.isArray(candidate)) {
+    for (const item of candidate) {
+      const amount = internalExtractAmount(
+        item,
+        sanitizedKeywords,
+        prioritizedKeys,
+        visited,
+        contextMatched
+      );
+      if (amount !== undefined) {
+        return amount;
+      }
+    }
+    return undefined;
+  }
+
+  if (typeof candidate === "object") {
+    if (visited.has(candidate)) {
+      return undefined;
+    }
+
+    visited.add(candidate);
+
+    const prioritizedSet = new Set(prioritizedKeys);
+
+    for (const key of prioritizedKeys) {
+      if (!Object.prototype.hasOwnProperty.call(candidate, key)) {
+        continue;
+      }
+      const amount = internalExtractAmount(
+        candidate[key],
+        sanitizedKeywords,
+        prioritizedKeys,
+        visited,
+        true
+      );
+      if (amount !== undefined) {
+        visited.delete(candidate);
+        return amount;
+      }
+    }
+
+    for (const [key, value] of Object.entries(candidate)) {
+      if (prioritizedSet.has(key)) {
+        continue;
+      }
+
+      const matchesKeywords = keyMatchesSanitizedKeywords(
+        key,
+        sanitizedKeywords
+      );
+
+      if (!matchesKeywords && !contextMatched) {
+        continue;
+      }
+
+      const amount = internalExtractAmount(
+        value,
+        sanitizedKeywords,
+        prioritizedKeys,
+        visited,
+        contextMatched || matchesKeywords
+      );
+      if (amount !== undefined) {
+        visited.delete(candidate);
+        return amount;
+      }
+    }
+
+    visited.delete(candidate);
+  }
+
+  return undefined;
+}
+
+function extractAmountWithKeywords(
+  candidate,
+  keywords = [],
+  { prioritizedKeys = HOUSING_AMOUNT_PRIORITIZED_KEYS, forceContext = false } = {}
+) {
+  const sanitizedKeywords = keywords
+    .map((keyword) => normalizeTextForMatching(keyword))
+    .filter(Boolean);
+
+  return internalExtractAmount(
+    candidate,
+    sanitizedKeywords,
+    prioritizedKeys,
+    new Set(),
+    forceContext || sanitizedKeywords.length === 0
+  );
+}
+
 function normalizeDepcomCandidate(value) {
   if (value === undefined || value === null) {
     return null;
@@ -435,38 +701,24 @@ function extractDepcom(source, logementSection) {
   return null;
 }
 
-function extractRentAmount(candidate) {
-  if (candidate === undefined || candidate === null) {
-    return undefined;
-  }
+function extractRentAmount(candidate, { forceContext = false } = {}) {
+  return extractAmountWithKeywords(candidate, RENT_TEXT_KEYWORDS, {
+    forceContext
+  });
+}
 
-  if (typeof candidate === "number" || typeof candidate === "string") {
-    return toNumber(candidate);
-  }
-
-  if (Array.isArray(candidate)) {
-    for (const item of candidate) {
-      const amount = extractRentAmount(item);
-      if (amount !== undefined) {
-        return amount;
-      }
-    }
-    return undefined;
-  }
-
-  if (typeof candidate === "object") {
-    const directKeys = ["montant", "amount", "value", "valeur"];
-    for (const key of directKeys) {
-      if (Object.prototype.hasOwnProperty.call(candidate, key)) {
-        const amount = extractRentAmount(candidate[key]);
-        if (amount !== undefined) {
-          return amount;
-        }
-      }
-    }
-  }
-
-  return undefined;
+function extractChargesAmount(candidate, { forceContext = false } = {}) {
+  return extractAmountWithKeywords(candidate, CHARGES_TEXT_KEYWORDS, {
+    prioritizedKeys: [
+      "charges_locatives",
+      "charge_locative",
+      "montant",
+      "amount",
+      "value",
+      "valeur"
+    ],
+    forceContext
+  });
 }
 
 function extractRent(source, logementSection) {
@@ -499,21 +751,80 @@ function extractRent(source, logementSection) {
     ["depenses", "logement", "loyer_mensuel"],
     ["depenses_logement", "loyer"],
     ["depenses_logement", "montant_loyer"],
-    ["depenses_logement", "loyer_mensuel"]
+    ["depenses_logement", "loyer_mensuel"],
+    ["message"],
+    ["texte"]
   ];
 
   for (const path of rentPaths) {
     const candidate = getValueByPaths(source, [path]);
-    const amount = extractRentAmount(candidate);
+    const lastKey = path[path.length - 1];
+    const isTextualPath = lastKey === "message" || lastKey === "texte";
+    const amount = extractRentAmount(candidate, {
+      forceContext: !isTextualPath
+    });
     if (amount !== undefined) {
       return amount;
     }
   }
 
   if (logementSection && typeof logementSection === "object") {
-    const amount = extractRentAmount(logementSection.loyer);
+    const amount = extractRentAmount(logementSection.loyer, { forceContext: true });
     if (amount !== undefined) {
       return amount;
+    }
+  }
+
+  return undefined;
+}
+
+function extractCharges(source, logementSection) {
+  const chargePaths = [
+    ["charges_locatives"],
+    ["charge_locative"],
+    ["charges"],
+    ["logement", "charges_locatives"],
+    ["logement", "charge_locative"],
+    ["logement", "charges"],
+    ["menage", "charges_locatives"],
+    ["menage", "charges"],
+    ["situation", "charges_locatives"],
+    ["situation", "charges"],
+    ["situation", "logement", "charges_locatives"],
+    ["situation", "logement", "charges"],
+    ["depenses", "logement", "charges_locatives"],
+    ["depenses", "logement", "charges"],
+    ["depenses_logement", "charges_locatives"],
+    ["depenses_logement", "charges"],
+    ["message"],
+    ["texte"]
+  ];
+
+  for (const path of chargePaths) {
+    const candidate = getValueByPaths(source, [path]);
+    const lastKey = path[path.length - 1];
+    const isTextualPath = lastKey === "message" || lastKey === "texte";
+    const amount = extractChargesAmount(candidate, {
+      forceContext: !isTextualPath
+    });
+    if (amount !== undefined) {
+      return amount;
+    }
+  }
+
+  if (logementSection && typeof logementSection === "object") {
+    const amount = extractChargesAmount(logementSection.charges_locatives, {
+      forceContext: true
+    });
+    if (amount !== undefined) {
+      return amount;
+    }
+
+    const nestedAmount = extractChargesAmount(logementSection.charges, {
+      forceContext: true
+    });
+    if (nestedAmount !== undefined) {
+      return nestedAmount;
     }
   }
 
@@ -1398,6 +1709,137 @@ function normalizeUserInput(rawJson = {}) {
     prestationsADemanderEntries
   );
 
+  const hasMeaningfulConjointSection = (value) => {
+    if (value === undefined || value === null) {
+      return false;
+    }
+
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "number") {
+      return true;
+    }
+
+    if (typeof value === "string") {
+      return value.trim().length > 0;
+    }
+
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+
+    if (typeof value === "object") {
+      return Object.keys(value).length > 0;
+    }
+
+    return false;
+  };
+
+  const normalizeStatusCandidate = (value) => {
+    if (value === undefined || value === null) {
+      return "";
+    }
+
+    const stringValue =
+      typeof value === "string" || value instanceof String
+        ? value
+        : String(value);
+
+    return stringValue
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  };
+
+  const interpretMaritalStatus = (normalized) => {
+    if (!normalized) {
+      return null;
+    }
+
+    const singleKeywords = [
+      "celibataire",
+      "seul",
+      "seule",
+      "separe",
+      "separee",
+      "separes",
+      "divorce",
+      "divorcee",
+      "divorces",
+      "veuf",
+      "veuve",
+      "isole",
+      "isolee",
+      "monoparentale",
+      "monoparental",
+      "sans conjoint",
+      "sans partenaire"
+    ];
+
+    const coupleKeywords = [
+      "marie",
+      "mariee",
+      "maries",
+      "pacs",
+      "couple",
+      "concubin",
+      "concubine",
+      "union libre",
+      "en couple",
+      "conjoint",
+      "partenaire"
+    ];
+
+    if (singleKeywords.some((keyword) => normalized.includes(keyword))) {
+      return "single";
+    }
+
+    if (coupleKeywords.some((keyword) => normalized.includes(keyword))) {
+      return "couple";
+    }
+
+    return null;
+  };
+
+  const evaluateMaritalStatus = (candidate) => {
+    if (candidate === undefined || candidate === null) {
+      return null;
+    }
+
+    if (
+      typeof candidate === "string" ||
+      typeof candidate === "number" ||
+      typeof candidate === "boolean"
+    ) {
+      return interpretMaritalStatus(normalizeStatusCandidate(candidate));
+    }
+
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) {
+        const evaluation = evaluateMaritalStatus(item);
+        if (evaluation) {
+          return evaluation;
+        }
+      }
+      return null;
+    }
+
+    if (typeof candidate === "object") {
+      for (const value of Object.values(candidate)) {
+        const evaluation = evaluateMaritalStatus(value);
+        if (evaluation) {
+          return evaluation;
+        }
+      }
+    }
+
+    return null;
+  };
+
   const logementStatutPaths = [
     ["logement", "statut"],
     ["logement", "status"],
@@ -1454,6 +1896,7 @@ function normalizeUserInput(rawJson = {}) {
 
   const depcom = extractDepcom(source, logementSection) ?? DEFAULT_DEPCOM;
   const rentAmount = extractRent(source, logementSection);
+  const chargesAmount = extractCharges(source, logementSection);
 
   const salaireDemandeur = toNumber(
     getValueByPaths(source, [
@@ -1903,13 +2346,62 @@ function normalizeUserInput(rawJson = {}) {
     prenom: enfantsPrenoms[index]
   }));
 
+  const maritalStatusCandidate = getValueByPaths(source, [
+    ["statut_marital"],
+    ["statut_matrimonial"],
+    ["situation", "statut_marital"],
+    ["situation", "statut_matrimonial"],
+    ["situation", "marital_status"],
+    ["menage", "statut_marital"],
+    ["menage", "statut_matrimonial"],
+    ["menage", "marital_status"],
+    ["famille", "statut_marital"],
+    ["famille", "statut_matrimonial"]
+  ]);
+  const maritalStatus = evaluateMaritalStatus(maritalStatusCandidate);
+
+  const conjointSections = [
+    getValueByPaths(source, [["conjoint"]]),
+    getValueByPaths(source, [["situation", "conjoint"]]),
+    getValueByPaths(source, [["personnes", "conjoint"]]),
+    getValueByPaths(source, [["menage", "conjoint"]])
+  ];
+
+  const hasConjointSection = conjointSections.some((section) =>
+    hasMeaningfulConjointSection(section)
+  );
+
+  const hasConjointIncome = salaireConjoint !== undefined;
+  const hasConjointAah = aahConjoint !== null;
+  const hasConjointAge = isValidAge(ageConjoint);
+  const hasConjointBirthdate = Boolean(dateNaissanceConjointIso);
+  const hasConjointName = Boolean(prenomConjoint);
+  const hasConjointPrestations =
+    Object.keys(prestationsRecues.conjoint || {}).length > 0 ||
+    Object.keys(prestationsADemander.conjoint || {}).length > 0;
+
+  let hasConjoint =
+    hasConjointSection ||
+    hasConjointIncome ||
+    hasConjointAah ||
+    hasConjointAge ||
+    hasConjointBirthdate ||
+    hasConjointName ||
+    hasConjointPrestations;
+
+  if (maritalStatus === "single") {
+    hasConjoint = false;
+  } else if (maritalStatus === "couple") {
+    hasConjoint = true;
+  }
+
   return {
     salaire_de_base: salaireDemandeur ?? 0,
-    salaire_de_base_conjoint: salaireConjoint ?? 0,
+    salaire_de_base_conjoint: salaireConjoint ?? null,
     aah: aahDemandeur ?? null,
     aah_conjoint: aahConjoint ?? null,
     age: ageDemandeur ?? 30,
-    age_conjoint: ageConjoint ?? 30,
+    age_conjoint: ageConjoint ?? null,
     date_naissance: dateNaissanceDemandeurIso ?? null,
     date_naissance_conjoint: dateNaissanceConjointIso ?? null,
     prenom_demandeur: prenomDemandeur ?? null,
@@ -1920,9 +2412,11 @@ function normalizeUserInput(rawJson = {}) {
     enfants_prenoms: enfantsPrenoms,
     prestations_recues: prestationsRecues,
     prestations_a_demander: prestationsADemander,
+    has_conjoint: hasConjoint,
     statut_occupation_logement: statutOccupationLogement,
     depcom,
-    loyer: rentAmount ?? null
+    loyer: rentAmount ?? null,
+    charges_locatives: chargesAmount ?? null
   };
 }
 
@@ -1966,6 +2460,8 @@ export function buildOpenFiscaPayload(rawJson) {
 
   const prestationsRecues =
     normalized.prestations_recues || createEmptyPrestationsContainer();
+  const prestationsADemander =
+    normalized.prestations_a_demander || createEmptyPrestationsContainer();
 
   // Récupérer les données utilisateur
   const salaire1 = normalized.salaire_de_base;
@@ -1985,19 +2481,42 @@ export function buildOpenFiscaPayload(rawJson) {
   const nbEnfants = normalized.nombre_enfants || 0;
   const enfantsAges = normalized.enfants || [];
 
+  const hasExplicitConjointFlag = normalized.has_conjoint;
+  const hasConjointData =
+    (salaire2 !== undefined && salaire2 !== null) ||
+    (aah2 !== undefined && aah2 !== null) ||
+    isValidAge(age2) ||
+    Boolean(normalized.date_naissance_conjoint) ||
+    Boolean(normalized.prenom_conjoint);
+  const hasConjointBenefits =
+    Object.keys(prestationsRecues.conjoint || {}).length > 0 ||
+    Object.keys(prestationsADemander.conjoint || {}).length > 0;
+
+  let shouldIncludeConjoint;
+  if (hasExplicitConjointFlag === true) {
+    shouldIncludeConjoint = true;
+  } else if (hasExplicitConjointFlag === false) {
+    shouldIncludeConjoint = false;
+  } else {
+    shouldIncludeConjoint = hasConjointData || hasConjointBenefits;
+  }
+
   // Construire les individus
   const individus = {
     individu_1: {
       salaire_de_base: createResourcePeriodValues("salaire_de_base", salaire1),
       age: createPeriodValues("age", age1),
       aah: createResourcePeriodValues("aah", aah1 ?? null)
-    },
-    individu_2: {
+    }
+  };
+
+  if (shouldIncludeConjoint) {
+    individus.individu_2 = {
       salaire_de_base: createResourcePeriodValues("salaire_de_base", salaire2),
       age: createPeriodValues("age", age2),
       aah: createResourcePeriodValues("aah", aah2 ?? null)
-    }
-  };
+    };
+  }
 
   // Ajouter les enfants
   for (let i = 1; i <= nbEnfants; i++) {
@@ -2030,27 +2549,32 @@ export function buildOpenFiscaPayload(rawJson) {
   const statutOccupationLogement =
     normalized.statut_occupation_logement || "non_renseigne";
 
+  const parentsIds = shouldIncludeConjoint
+    ? ["individu_1", "individu_2"]
+    : ["individu_1"];
+
   const familles = {
     famille_1: {
-      parents: ["individu_1", "individu_2"],
+      parents: parentsIds,
       enfants: enfantsIds
     }
   };
 
   const foyers_fiscaux = {
     foyer_fiscal_1: {
-      declarants: ["individu_1", "individu_2"],
+      declarants: parentsIds,
       personnes_a_charge: enfantsIds
     }
   };
 
   const depcomCode = normalized.depcom || DEFAULT_DEPCOM;
   const montantLoyer = normalized.loyer;
+  const montantCharges = normalized.charges_locatives;
 
   const menages = {
     menage_1: {
       personne_de_reference: ["individu_1"],
-      conjoint: ["individu_2"],
+      conjoint: shouldIncludeConjoint ? ["individu_2"] : [],
       enfants: enfantsIds,
       statut_occupation_logement: createPeriodValues(
         "statut_occupation_logement",
@@ -2066,6 +2590,17 @@ export function buildOpenFiscaPayload(rawJson) {
     Number.isFinite(montantLoyer)
   ) {
     menages.menage_1.loyer = createPeriodValues("loyer", montantLoyer);
+  }
+
+  if (
+    isTenantHousingStatus(statutOccupationLogement) &&
+    typeof montantCharges === "number" &&
+    Number.isFinite(montantCharges)
+  ) {
+    menages.menage_1.charges_locatives = createPeriodValues(
+      "charges_locatives",
+      montantCharges
+    );
   }
 
   const applyBenefitValue = (target, variableName, entry) => {
