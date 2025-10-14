@@ -1,0 +1,19 @@
+description: Plafond (en % du traitement indiciaire brut) des cotisations au régime de retraite additionnelle de la fonction publique (RAFP)
+values:
+  2005-01-01:
+    value: 0.2
+metadata:
+  short_label: Assiette plafond
+  last_value_still_valid_on: "2025-08-22"
+  label_en: Contributions to the scheme of Additional pension of the public sector (RAFP)
+  ipp_csv_id: plafond_tib
+  unit: /1
+  reference:
+    2005-01-01:
+      - title: Décret 2004-569 du 18/06/2004, art. 2
+        href: https://www.legifrance.gouv.fr/jorf/article_jo/JORFARTI000002111419
+  official_journal_date:
+    2005-01-01: "2004-06-19"
+  notes:
+    2005-01-01:
+      title: "Ces éléments sont pris en compte dans la limite de 20 % du traitement indiciaire brut total perçu au cours de l'année considérée."

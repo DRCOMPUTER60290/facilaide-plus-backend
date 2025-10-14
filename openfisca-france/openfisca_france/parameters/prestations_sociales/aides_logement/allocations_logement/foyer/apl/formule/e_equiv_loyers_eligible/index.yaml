@@ -1,0 +1,7 @@
+description: Équivalence de loyer et de charges locatives éligible pour les personnes résidant dans un logement-foyer conventionné, Allocations logement (AL)
+metadata:
+  short_label: Équivalence de loyer et de charges locatives éligible « E »
+  order:
+  - zone_1
+  - zone_2
+  - zone_3

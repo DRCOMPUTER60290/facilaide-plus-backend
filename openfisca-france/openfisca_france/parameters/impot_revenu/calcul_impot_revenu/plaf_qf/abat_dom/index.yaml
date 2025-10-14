@@ -1,0 +1,6 @@
+description: Abattements spécifiques aux départements d'outre-mer (DOM) de l'impôt sur le revenu (IR)
+metadata:
+  short_label: Abattement pour les départements d'outre-mer
+  order:
+  - guadeloupe_martinique_reunion
+  - guyane_mayotte

@@ -1,0 +1,8 @@
+description: Montant (en nombre de la BMAF) du Complément de libre choix de mode de garde (CMG) de la Prestation d'accueil du jeune enfant (PAJE) en cas de garde à domicile ou par un établissement d'accueil de jeunes enfants
+metadata:
+  short_label: Montants (en nombre de BMAF) si garde à domicile ou établissement d'acceuil
+  label_en: Home care
+  order:
+  - sous_premier_plafond
+  - sous_second_plafond
+  - apres_second_plafond

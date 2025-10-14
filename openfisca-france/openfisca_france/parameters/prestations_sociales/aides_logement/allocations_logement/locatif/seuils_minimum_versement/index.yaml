@@ -1,0 +1,7 @@
+description: Montant minimal mensuel versé (APL ou AL) des allocations logement (secteur locatif)
+metadata:
+  short_label: Seuils minimum de versement
+  label_en: Minimal amount
+  order:
+  - apl
+  - non_apl

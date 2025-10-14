@@ -1,0 +1,11 @@
+description: Revenus des professions non salariées (RPNS)
+metadata:
+  documentation_start: true
+  short_label: Revenu des professions non salariées
+  order:
+  - micro
+  - microsocial
+  - cga_max
+  - cga_taux
+  - cga_taux2
+  - taux10

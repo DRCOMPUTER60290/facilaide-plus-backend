@@ -1,0 +1,10 @@
+description: Revenu des valeurs et capitaux mobiliers (RVCM)
+metadata:
+  documentation_start: true
+  short_label: Revenu des valeurs et capitaux mobiliers
+  label_en: Investment gains and securities income
+  order:
+  - revenus_capitaux_mobiliers_dividendes
+  - produits_assurances_vies_assimiles
+  - majoration_revenus_reputes_distribues
+  - taux_forfaitaire

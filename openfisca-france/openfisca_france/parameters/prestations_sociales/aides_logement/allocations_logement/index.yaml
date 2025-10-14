@@ -1,0 +1,9 @@
+description: Allocations logement
+metadata:
+  short_label: Allocations logement
+  label_en: Allowances
+  order:
+  - locatif
+  - foyer
+  - accession
+  - ressources

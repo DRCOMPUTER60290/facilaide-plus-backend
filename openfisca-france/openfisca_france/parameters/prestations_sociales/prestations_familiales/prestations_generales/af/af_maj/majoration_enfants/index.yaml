@@ -1,0 +1,6 @@
+description: Majoration pour les enfants (en % de la BMAF) des allocations familiales (AF)
+metadata:
+  short_label: Pour les enfants
+  label_en: "Family allowances (AF): Extra allowances"
+  order:
+  - allocation_forfaitaire

@@ -1,0 +1,12 @@
+description: Plafond individuel des dons consentis aux partis politiques
+values:
+  2013-01-01:
+    value: 7500
+metadata:
+  last_value_still_valid_on: "2025-08-22"
+  short_label: Plafond individuel des dons consentis aux partis politiques
+  unit: currency_next_year
+  reference:
+    2013-01-01:
+    - title: Article 11-4 de la Loi n° 88-227 du 11 mars 1988
+      href: https://www.legifrance.gouv.fr/loda/article_lc/LEGIARTI000028059921/2013-10-13/

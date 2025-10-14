@@ -1,0 +1,11 @@
+description: Condition d'âge minimum pour laquelle le séjour peut être pris en charge pour les bénéficiaires de l'aide Départ 18-25 pour les jeunes
+values:
+  2014-09-05:
+    value: 18
+metadata:
+  short_label: Minimum
+  unit: year
+  reference:
+    2014-09-05:
+      - title: Magazine Caf 13/05/2022
+        href: https://www.caf.fr/allocataires/vies-de-famille/articles/un-dispositif-pour-aider-les-18-25-ans-partir-en-vacances

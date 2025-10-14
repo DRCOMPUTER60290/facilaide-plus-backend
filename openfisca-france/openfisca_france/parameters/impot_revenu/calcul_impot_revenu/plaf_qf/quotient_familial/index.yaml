@@ -1,0 +1,8 @@
+description: Quotient familial de l'impôt sur le revenu (IR) et critères d'attribution de parts supplémentaires
+metadata:
+  documentation_start: true
+  short_label: Quotient familial et parts supplémentaires
+  order:
+  - cas_general
+  - sans_pers_a_charge
+  - couple_ou_pers_a_charge

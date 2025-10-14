@@ -1,0 +1,8 @@
+description: Montants (en nombre de BMAF) du Complément de libre choix de mode de garde (CMG) de la Prestation d'accueil du jeune enfant (PAJE) pour recours à une assistante maternelle, une association, une entreprise ou une microcrèche
+metadata:
+  short_label: Montants (en nombre de BMAF) si recours à une assistante maternelle, une association, une entreprise ou une microcrèche
+  label_en: Use of a childminder, an association, a company or a microcreche
+  order:
+  - sous_premier_plafond
+  - sous_second_plafond
+  - apres_second_plafond

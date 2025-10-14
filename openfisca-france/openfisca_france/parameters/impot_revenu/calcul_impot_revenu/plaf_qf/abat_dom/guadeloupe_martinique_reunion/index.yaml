@@ -1,0 +1,6 @@
+description: Abattement spécifique Guadeloupe, Martinique, Réunion, de l'impôt sur le revenu (IR)
+metadata:
+  short_label: Guadeloupe, Martinique, Réunion
+  order:
+  - taux
+  - plaf
