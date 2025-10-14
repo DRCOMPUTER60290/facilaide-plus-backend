@@ -187,6 +187,45 @@ test("housing status defaults to non_renseigne when not provided", () => {
   );
 });
 
+test("single-parent households omit the second adulte by default", () => {
+  const payload = buildOpenFiscaPayload({
+    salaire_de_base: 400,
+    age: 32,
+    nombre_enfants: 3,
+    enfants: [{ age: 15 }, { age: 10 }, { age: 5 }],
+    logement: { statut: "locataire", loyer: 500 }
+  });
+
+  const individus = payload?.individus || {};
+  assert.ok(individus.individu_1, "individu_1 should exist for the demandeur");
+  assert.ok(
+    !Object.prototype.hasOwnProperty.call(individus, "individu_2"),
+    "individu_2 should be absent when no conjoint information is provided"
+  );
+
+  const familleParents = payload?.familles?.famille_1?.parents || [];
+  assert.deepEqual(
+    familleParents,
+    ["individu_1"],
+    "Only the demandeur should appear in the parents array"
+  );
+
+  const foyerDeclarants = payload?.foyers_fiscaux?.foyer_fiscal_1?.declarants || [];
+  assert.deepEqual(
+    foyerDeclarants,
+    ["individu_1"],
+    "Foyer fiscal declarants should include only the demandeur"
+  );
+
+  const menageConjoint = payload?.menages?.menage_1?.conjoint;
+  assert.ok(Array.isArray(menageConjoint), "Menage conjoint property should be an array");
+  assert.strictEqual(
+    menageConjoint.length,
+    0,
+    "Menage conjoint array should be empty for single-parent households"
+  );
+});
+
 test("menage depcom defaults to 60100 and honors provided code", () => {
   const now = new Date();
   const currentMonth = getCurrentMonthKey(now);

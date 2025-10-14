@@ -1903,17 +1903,29 @@ function normalizeUserInput(rawJson = {}) {
     prenom: enfantsPrenoms[index]
   }));
 
+  const hasConjointPrestations = Object.keys(
+    prestationsRecues?.conjoint || {}
+  ).length > 0;
+
+  const hasConjoint =
+    hasConjointPrestations ||
+    salaireConjoint !== undefined ||
+    (aahConjoint !== null && aahConjoint !== undefined) ||
+    isValidAge(ageConjoint) ||
+    !!dateNaissanceConjointIso ||
+    !!prenomConjoint;
+
   return {
     salaire_de_base: salaireDemandeur ?? 0,
-    salaire_de_base_conjoint: salaireConjoint ?? 0,
+    salaire_de_base_conjoint: hasConjoint ? salaireConjoint ?? 0 : null,
     aah: aahDemandeur ?? null,
-    aah_conjoint: aahConjoint ?? null,
+    aah_conjoint: hasConjoint ? aahConjoint ?? null : null,
     age: ageDemandeur ?? 30,
-    age_conjoint: ageConjoint ?? 30,
+    age_conjoint: hasConjoint ? ageConjoint ?? 30 : null,
     date_naissance: dateNaissanceDemandeurIso ?? null,
-    date_naissance_conjoint: dateNaissanceConjointIso ?? null,
+    date_naissance_conjoint: hasConjoint ? dateNaissanceConjointIso ?? null : null,
     prenom_demandeur: prenomDemandeur ?? null,
-    prenom_conjoint: prenomConjoint ?? null,
+    prenom_conjoint: hasConjoint ? prenomConjoint ?? null : null,
     nombre_enfants: nombreEnfants,
     enfants: enfantsAges,
     enfants_details: enfantsDetails,
@@ -1922,7 +1934,8 @@ function normalizeUserInput(rawJson = {}) {
     prestations_a_demander: prestationsADemander,
     statut_occupation_logement: statutOccupationLogement,
     depcom,
-    loyer: rentAmount ?? null
+    loyer: rentAmount ?? null,
+    has_conjoint: hasConjoint
   };
 }
 
@@ -1982,6 +1995,7 @@ export function buildOpenFiscaPayload(rawJson) {
       : normalized.aah_conjoint;
   const age1 = normalized.age;
   const age2 = normalized.age_conjoint;
+  const hasConjoint = Boolean(normalized.has_conjoint);
   const nbEnfants = normalized.nombre_enfants || 0;
   const enfantsAges = normalized.enfants || [];
 
@@ -1991,13 +2005,16 @@ export function buildOpenFiscaPayload(rawJson) {
       salaire_de_base: createResourcePeriodValues("salaire_de_base", salaire1),
       age: createPeriodValues("age", age1),
       aah: createResourcePeriodValues("aah", aah1 ?? null)
-    },
-    individu_2: {
+    }
+  };
+
+  if (hasConjoint) {
+    individus.individu_2 = {
       salaire_de_base: createResourcePeriodValues("salaire_de_base", salaire2),
       age: createPeriodValues("age", age2),
       aah: createResourcePeriodValues("aah", aah2 ?? null)
-    }
-  };
+    };
+  }
 
   // Ajouter les enfants
   for (let i = 1; i <= nbEnfants; i++) {
@@ -2032,14 +2049,16 @@ export function buildOpenFiscaPayload(rawJson) {
 
   const familles = {
     famille_1: {
-      parents: ["individu_1", "individu_2"],
+      parents: hasConjoint ? ["individu_1", "individu_2"] : ["individu_1"],
       enfants: enfantsIds
     }
   };
 
   const foyers_fiscaux = {
     foyer_fiscal_1: {
-      declarants: ["individu_1", "individu_2"],
+      declarants: hasConjoint
+        ? ["individu_1", "individu_2"]
+        : ["individu_1"],
       personnes_a_charge: enfantsIds
     }
   };
@@ -2050,7 +2069,7 @@ export function buildOpenFiscaPayload(rawJson) {
   const menages = {
     menage_1: {
       personne_de_reference: ["individu_1"],
-      conjoint: ["individu_2"],
+      conjoint: hasConjoint ? ["individu_2"] : [],
       enfants: enfantsIds,
       statut_occupation_logement: createPeriodValues(
         "statut_occupation_logement",
