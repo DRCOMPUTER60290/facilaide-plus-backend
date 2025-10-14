@@ -238,12 +238,18 @@ export function buildPersonLabels(rawJson = {}, payload = {}) {
     labels.individu_1 = individu1Name;
   }
 
-  const individu2Name = findRoleName(rawJson, "conjoint");
-  if (individu2Name) {
-    labels.individu_2 = individu2Name;
+  const individus = payload?.individus || {};
+  const hasConjoint = Boolean(individus.individu_2);
+
+  if (hasConjoint) {
+    const individu2Name = findRoleName(rawJson, "conjoint");
+    if (individu2Name) {
+      labels.individu_2 = individu2Name;
+    }
+  } else {
+    delete labels.individu_2;
   }
 
-  const individus = payload?.individus || {};
   const childKeys = Object.keys(individus).filter((key) => /^enfant_\d+$/.test(key));
 
   childKeys.forEach((key) => {
