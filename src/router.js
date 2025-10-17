@@ -334,6 +334,26 @@ export function formatExplanation(explanation, personLabels = {}) {
   return formatted;
 }
 
+export function extractRawJsonInput(body) {
+  if (body === null || body === undefined) {
+    return {};
+  }
+
+  if (typeof body !== "object") {
+    return body;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "rawJson")) {
+    return body.rawJson ?? {};
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "json")) {
+    return body.json ?? {};
+  }
+
+  return body;
+}
+
 const router = express.Router();
 
 /**
@@ -362,7 +382,7 @@ router.post("/generate-json", async (req, res) => {
  */
 router.post("/simulate", async (req, res) => {
   try {
-    const { rawJson } = req.body;
+    const rawJson = extractRawJsonInput(req.body);
 
     // Transformer avec openfiscaVariablesMeta.json
     const { individus, familles, foyers_fiscaux, menages } = buildOpenFiscaPayload(rawJson);
