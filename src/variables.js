@@ -1578,7 +1578,55 @@ function getPrestationPayloadAmount(entry) {
 }
 
 function normalizeUserInput(rawJson = {}) {
-  const source = rawJson && typeof rawJson === "object" ? rawJson : {};
+  const wrapperKeys = new Set([
+    "json",
+    "data",
+    "payload",
+    "raw_json",
+    "result",
+    "body",
+    "content"
+  ]);
+
+  const sourceCandidates = [];
+  if (rawJson && typeof rawJson === "object" && !Array.isArray(rawJson)) {
+    sourceCandidates.push(rawJson);
+  }
+
+  const visited = new Set();
+  for (let index = 0; index < sourceCandidates.length; index += 1) {
+    const candidate = sourceCandidates[index];
+    if (!candidate || typeof candidate !== "object" || visited.has(candidate)) {
+      continue;
+    }
+
+    visited.add(candidate);
+
+    Object.entries(candidate).forEach(([key, value]) => {
+      const normalizedKey = typeof key === "string" ? key.toLowerCase() : key;
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value) &&
+        wrapperKeys.has(normalizedKey)
+      ) {
+        sourceCandidates.push(value);
+      }
+    });
+  }
+
+  const source = {};
+  for (const candidate of sourceCandidates) {
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
+
+    Object.entries(candidate).forEach(([key, value]) => {
+      if (!(key in source)) {
+        source[key] = value;
+      }
+    });
+  }
   const simulationReferenceDate = new Date();
 
   const extractFirstNameFromValue = (value) => {
@@ -2378,6 +2426,7 @@ function normalizeUserInput(rawJson = {}) {
     statut_occupation_logement: statutOccupationLogement,
     depcom,
     loyer: rentAmount ?? null,
+    charges_locatives: chargesAmount ?? null,
     has_conjoint: hasConjoint
   };
 }
@@ -2510,6 +2559,7 @@ export function buildOpenFiscaPayload(rawJson) {
 
   const depcomCode = normalized.depcom || DEFAULT_DEPCOM;
   const montantLoyer = normalized.loyer;
+  const montantCharges = normalized.charges_locatives;
 
   const menages = {
     menage_1: {
@@ -2530,6 +2580,17 @@ export function buildOpenFiscaPayload(rawJson) {
     Number.isFinite(montantLoyer)
   ) {
     menages.menage_1.loyer = createPeriodValues("loyer", montantLoyer);
+  }
+
+  if (
+    isTenantHousingStatus(statutOccupationLogement) &&
+    typeof montantCharges === "number" &&
+    Number.isFinite(montantCharges)
+  ) {
+    menages.menage_1.charges_locatives = createPeriodValues(
+      "charges_locatives",
+      montantCharges
+    );
   }
 
   const applyBenefitValue = (target, variableName, entry) => {

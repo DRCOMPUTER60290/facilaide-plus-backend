@@ -372,6 +372,30 @@ test("single parent households do not create a phantom second parent", () => {
   );
 });
 
+test("children nested inside a json wrapper are detected", () => {
+  const payload = buildOpenFiscaPayload({
+    json: {
+      salaire_de_base: 500,
+      nombre_enfants: 2,
+      enfants: [
+        { age: 4, prenom: "Léa" },
+        { age: 7, prenom: "Noah" }
+      ],
+      logement: { statut: "locataire" }
+    }
+  });
+
+  assert.ok(payload?.individus?.individu_1, "individu_1 should exist");
+  assert.ok(payload?.individus?.enfant_1, "enfant_1 should exist when nested under json");
+  assert.ok(payload?.individus?.enfant_2, "enfant_2 should exist when nested under json");
+
+  assert.deepEqual(
+    payload?.familles?.famille_1?.enfants,
+    ["enfant_1", "enfant_2"],
+    "nested children should be referenced by the family entity"
+  );
+});
+
 test("explicit conjoint information keeps both parents in the payload", () => {
   const payload = buildOpenFiscaPayload({
     salaire_de_base: 1200,
