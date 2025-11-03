@@ -1,0 +1,2174 @@
+{
+  "meta": {
+    "version": "1.0",
+    "description": "Questionnaire FacilAide+ - Étape 1 : Composition du foyer + Étape 2 : Situation personnelle et professionnelle (demandeur + conjoint)",
+    "created_at": "2025-11-03",
+    "notes": "Ce fichier définit l'ordre des questions et leur lien avec les variables OpenFisca."
+  },
+  "startQuestionId": "demandeur_prenom",
+  "sections": [
+    {
+      "id": "composition_foyer",
+      "title": "Composition du foyer",
+      "questions": [
+        {
+          "id": "demandeur_prenom",
+          "label": "Quel est votre prénom ?",
+          "type": "text",
+          "required": true,
+          "internalKey": "demandeur.prenom",
+          "openfisca": null,
+          "next": "demandeur_date_naissance"
+        },
+        {
+          "id": "demandeur_date_naissance",
+          "label": "Quelle est votre date de naissance ?",
+          "type": "date",
+          "required": true,
+          "internalKey": "demandeur.date_naissance",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "date_naissance"
+          },
+          "next": "situation_familiale"
+        },
+        {
+          "id": "situation_familiale",
+          "label": "Quelle est votre situation familiale ?",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Célibataire",
+            "Pacsé(e)",
+            "Marié(e)",
+            "Divorcé(e)",
+            "Veuf(ve)"
+          ],
+          "internalKey": "demandeur.situation_familiale",
+          "openfisca": null,
+          "nextIf": [
+            {
+              "ifValueIn": [
+                "Pacsé(e)",
+                "Marié(e)"
+              ],
+              "goTo": "conjoint_prenom"
+            },
+            {
+              "ifValueIn": [
+                "Célibataire",
+                "Divorcé(e)",
+                "Veuf(ve)"
+              ],
+              "goTo": "enfants_ou_personnes_a_charge"
+            }
+          ]
+        },
+        {
+          "id": "conjoint_prenom",
+          "label": "Quel est le prénom de votre conjoint ?",
+          "type": "text",
+          "required": true,
+          "internalKey": "conjoint.prenom",
+          "visibleIf": {
+            "questionId": "situation_familiale",
+            "operator": "in",
+            "values": [
+              "Pacsé(e)",
+              "Marié(e)"
+            ]
+          },
+          "openfisca": null,
+          "next": "conjoint_date_naissance"
+        },
+        {
+          "id": "conjoint_date_naissance",
+          "label": "Quelle est la date de naissance de votre conjoint ?",
+          "type": "date",
+          "required": true,
+          "internalKey": "conjoint.date_naissance",
+          "visibleIf": {
+            "questionId": "situation_familiale",
+            "operator": "in",
+            "values": [
+              "Pacsé(e)",
+              "Marié(e)"
+            ]
+          },
+          "openfisca": {
+            "entity": "individu",
+            "variable": "date_naissance"
+          },
+          "next": "enfants_ou_personnes_a_charge"
+        },
+        {
+          "id": "enfants_ou_personnes_a_charge",
+          "label": "Avez-vous des enfants ou des personnes à charge vivant avec vous au quotidien ?",
+          "type": "boolean",
+          "required": true,
+          "internalKey": "famille.a_enfants_ou_personnes_a_charge",
+          "openfisca": null,
+          "nextIf": [
+            {
+              "ifValueIs": true,
+              "goTo": "nombre_enfants"
+            },
+            {
+              "ifValueIs": false,
+              "goTo": "situation_statuts"
+            }
+          ]
+        },
+        {
+          "id": "nombre_enfants",
+          "label": "Combien d'enfants ou de personnes à charge vivent avec vous ?",
+          "type": "number",
+          "required": true,
+          "min": 1,
+          "internalKey": "famille.nombre_enfants",
+          "openfisca": {
+            "entity": "famille",
+            "variable": "af_nbenf"
+          },
+          "next": "boucle_enfants"
+        },
+       {
+  "id": "boucle_enfants",
+  "label": "Boucle de saisie pour chaque enfant/personne à charge",
+  "type": "group",
+  "repeat": {
+    "fromQuestionId": "nombre_enfants"
+  },
+  "internalKey": "famille.enfants",
+  "openfisca": null,
+  "questions": [
+    {
+      "id": "enfant_prenom",
+      "label": "Prénom de l'enfant {{index}}",
+      "type": "text",
+      "required": true,
+      "internalKey": "enfant_{{index}}.prenom",
+      "openfisca": null
+    },
+    {
+      "id": "enfant_date_naissance",
+      "label": "Date de naissance de l'enfant {{index}}",
+      "type": "date",
+      "required": true,
+      "internalKey": "enfant_{{index}}.date_naissance",
+      "openfisca": {
+        "entity": "individu",
+        "variable": "date_naissance"
+      }
+    },
+    {
+      "id": "enfant_scolarite",
+      "label": "Scolarité de l'enfant {{index}}",
+      "type": "select",
+      "required": true,
+      "options": [
+        "Pas encore scolarisé",
+        "Maternelle",
+        "Élémentaire",
+        "Collège",
+        "Lycée",
+        "Études supérieures",
+        "Autre"
+      ],
+      "internalKey": "enfant_{{index}}.scolarite",
+      "openfisca": null
+    },
+    {
+      "id": "enfant_garde_alternee",
+      "label": "Cet enfant est-il en garde alternée ?",
+      "type": "boolean",
+      "required": false,
+      "internalKey": "enfant_{{index}}.garde_alternee",
+      "openfisca": null
+    },
+    {
+      "id": "enfant_en_situation_handicap",
+      "label": "Cet enfant est-il en situation de handicap ?",
+      "type": "boolean",
+      "required": false,
+      "internalKey": "enfant_{{index}}.en_situation_handicap",
+      "openfisca": {
+        "entity": "individu",
+        "variable": "handicap"
+      }
+    },
+    {
+      "id": "enfant_handicap_bloc",
+      "label": "Détails sur la situation de handicap de cet enfant",
+      "type": "group",
+      "visibleIf": {
+        "questionId": "enfant_en_situation_handicap",
+        "operator": "equals",
+        "values": [true]
+      },
+      "internalKey": "enfant_{{index}}.handicap_details",
+      "openfisca": null,
+      "questions": [
+        {
+          "id": "enfant_handicap_taux",
+          "label": "Taux d'incapacité de cet enfant",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Moins de 50%",
+            "Entre 50% et 80%",
+            "Plus de 80%"
+          ],
+          "internalKey": "enfant_{{index}}.handicap.taux_incapacite",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "aeeh_niveau_handicap"
+          }
+        },
+        {
+          "id": "enfant_handicap_restriction_emploi_cdaph",
+          "label": "Avec une restriction substantielle et durable d'accès à l'emploi reconnue par la CDAPH ?",
+          "type": "boolean",
+          "required": false,
+          "internalKey": "enfant_{{index}}.handicap.restriction_emploi_cdaph",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "aah_restriction_substantielle_durable_acces_emploi"
+          }
+        },
+        {
+          "id": "enfant_handicap_placement_structure",
+          "label": "Cet enfant est-il placé en structure spécialisée ou famille d'accueil ?",
+          "type": "boolean",
+          "required": false,
+          "internalKey": "enfant_{{index}}.handicap.enfant_place_structure",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "enfant_place"
+          }
+        }
+      ]
+    }
+  ],
+  "next": "situation_statuts"
+}
+
+      ]
+    },
+    {
+      "id": "situation_personnelle_professionnelle",
+      "title": "Situation personnelle et professionnelle",
+      "questions": [
+        {
+          "id": "situation_statuts",
+          "label": "Actuellement, vous êtes dans quelles situations ? (vous pouvez cocher plusieurs cases)",
+          "type": "multi_select",
+          "required": true,
+          "options": [
+            "En congé parental",
+            "Demandeur d'emploi",
+            "En reprise d'activité",
+            "En CER ou en PPAE",
+            "Journaliste, assistant maternel ou familial",
+            "Étudiant",
+            "En situation de handicap",
+            "Inapte au travail",
+            "En situation d'invalidité",
+            "Régime Alsace Moselle"
+          ],
+          "internalKey": "demandeur.situations",
+          "openfisca": null,
+          "next": "demandeur_emploi_bloc"
+        },
+        {
+          "id": "demandeur_emploi_bloc",
+          "label": "Informations si vous êtes demandeur d'emploi",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts",
+            "operator": "includes",
+            "values": [
+              "Demandeur d'emploi"
+            ]
+          },
+          "internalKey": "demandeur.demandeur_emploi",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "dem_emploi_date_fin_dernier_contrat",
+              "label": "Date de fin de votre dernier contrat de travail (laisser vide si aucun contrat)",
+              "type": "date",
+              "required": false,
+              "internalKey": "demandeur.demandeur_emploi.date_fin_dernier_contrat",
+              "openfisca": null
+            },
+            {
+              "id": "dem_emploi_travaille_5_ans_10_ans",
+              "label": "Avez-vous travaillé au moins 5 ans entre décembre 2013 et décembre 2023 ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "demandeur.demandeur_emploi.a_travaille_5_ans_10_ans",
+              "openfisca": null
+            },
+            {
+              "id": "dem_emploi_date_debut_indemnisation_chomage",
+              "label": "Date de début d'indemnisation chômage (laisser vide si vous ne percevez pas d'allocation chômage)",
+              "type": "date",
+              "required": false,
+              "internalKey": "demandeur.demandeur_emploi.date_debut_indemnisation_chomage",
+              "openfisca": {
+                "entity": "individu",
+                "variable": "date_debut_chomage"
+              }
+            }
+          ],
+          "next": "reprise_activite_bloc"
+        },
+        {
+          "id": "reprise_activite_bloc",
+          "label": "Informations si vous êtes en reprise d'activité",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts",
+            "operator": "includes",
+            "values": [
+              "En reprise d'activité"
+            ]
+          },
+          "internalKey": "demandeur.reprise_activite",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "reprise_type",
+              "label": "Vous reprenez votre activité en :",
+              "type": "select",
+              "required": true,
+              "options": [
+                "Formation",
+                "CDD",
+                "CDI",
+                "Création ou reprise d'entreprise"
+              ],
+              "internalKey": "demandeur.reprise_activite.type",
+              "openfisca": null
+            },
+            {
+              "id": "reprise_duree_formation",
+              "label": "Durée de la formation (en mois)",
+              "type": "number",
+              "required": false,
+              "min": 0,
+              "visibleIf": {
+                "questionId": "reprise_type",
+                "operator": "equals",
+                "values": [
+                  "Formation"
+                ]
+              },
+              "internalKey": "demandeur.reprise_activite.duree_formation_mois",
+              "openfisca": null
+            },
+            {
+              "id": "reprise_duree_cdd",
+              "label": "Durée du CDD (en mois)",
+              "type": "number",
+              "required": false,
+              "min": 0,
+              "visibleIf": {
+                "questionId": "reprise_type",
+                "operator": "equals",
+                "values": [
+                  "CDD"
+                ]
+              },
+              "internalKey": "demandeur.reprise_activite.duree_cdd_mois",
+              "openfisca": null
+            },
+            {
+              "id": "reprise_cdi_temps_travail",
+              "label": "Durée de travail pour votre CDI :",
+              "type": "select",
+              "required": false,
+              "options": [
+                "Temps plein",
+                "Temps partiel d'au moins 15h par semaine"
+              ],
+              "visibleIf": {
+                "questionId": "reprise_type",
+                "operator": "equals",
+                "values": [
+                  "CDI"
+                ]
+              },
+              "internalKey": "demandeur.reprise_activite.cdi_temps_travail",
+              "openfisca": null
+            }
+          ],
+          "next": "journaliste_assistant_bloc"
+        },
+        {
+          "id": "journaliste_assistant_bloc",
+          "label": "Informations si vous êtes journaliste, assistant maternel ou familial",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts",
+            "operator": "includes",
+            "values": [
+              "Journaliste, assistant maternel ou familial"
+            ]
+          },
+          "internalKey": "demandeur.journaliste_ou_assistant",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "journaliste_assistant_type",
+              "label": "Vous exercez en tant que :",
+              "type": "select",
+              "required": true,
+              "options": [
+                "Journaliste",
+                "Assistant maternel",
+                "Assistant familial"
+              ],
+              "internalKey": "demandeur.journaliste_ou_assistant.type",
+              "openfisca": null
+            },
+            {
+              "id": "journaliste_assistant_nb_mois",
+              "label": "Nombre de mois où vous avez exercé cette activité depuis septembre 2024",
+              "type": "number",
+              "required": false,
+              "min": 0,
+              "internalKey": "demandeur.journaliste_ou_assistant.nb_mois_depuis_2024_09",
+              "openfisca": null
+            }
+          ],
+          "next": "etudiant_bloc"
+        },
+        {
+          "id": "etudiant_bloc",
+          "label": "Informations si vous êtes étudiant",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts",
+            "operator": "includes",
+            "values": [
+              "Étudiant"
+            ]
+          },
+          "internalKey": "demandeur.etudiant",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "etudiant"
+          },
+          "questions": [
+            {
+              "id": "etudiant_boursier",
+              "label": "Êtes-vous boursier ?",
+              "type": "boolean",
+              "required": true,
+              "internalKey": "demandeur.etudiant.boursier",
+              "openfisca": null
+            }
+          ],
+          "next": "handicap_bloc"
+        },
+        {
+          "id": "handicap_bloc",
+          "label": "Informations si vous êtes en situation de handicap",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts",
+            "operator": "includes",
+            "values": [
+              "En situation de handicap"
+            ]
+          },
+          "internalKey": "demandeur.handicap",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "handicap"
+          },
+          "questions": [
+            {
+              "id": "handicap_taux",
+              "label": "Quel est votre taux d'incapacité ?",
+              "type": "select",
+              "required": true,
+              "options": [
+                "Moins de 50%",
+                "Entre 50% et 80%",
+                "Plus de 80%"
+              ],
+              "internalKey": "demandeur.handicap.taux_incapacite",
+              "openfisca": null
+            }
+          ],
+          "next": "inapte_invalidite_bloc"
+        },
+        {
+          "id": "inapte_invalidite_bloc",
+          "label": "Informations sur l'inaptitude au travail ou l'invalidité",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts",
+            "operator": "includesAny",
+            "values": [
+              "Inapte au travail",
+              "En situation d'invalidité"
+            ]
+          },
+          "internalKey": "demandeur.inaptitude_ou_invalidite",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "invalidite"
+          },
+          "questions": [
+            {
+              "id": "inapte_au_travail",
+              "label": "Êtes-vous reconnu inapte au travail ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "demandeur.inaptitude_ou_invalidite.inapte_au_travail",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts",
+                "operator": "includes",
+                "values": [
+                  "Inapte au travail"
+                ]
+              }
+            },
+            {
+              "id": "en_invalidite",
+              "label": "Êtes-vous en situation d'invalidité reconnue ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "demandeur.inaptitude_ou_invalidite.en_invalidite",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts",
+                "operator": "includes",
+                "values": [
+                  "En situation d'invalidité"
+                ]
+              }
+            }
+          ],
+          "next": "autres_situations_bloc"
+        },
+        {
+          "id": "autres_situations_bloc",
+          "label": "Autres situations particulières",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts",
+            "operator": "includesAny",
+            "values": [
+              "En congé parental",
+              "En CER ou en PPAE",
+              "Régime Alsace Moselle"
+            ]
+          },
+          "internalKey": "demandeur.autres_situations",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "conge_parental_actif",
+              "label": "Êtes-vous actuellement en congé parental ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "demandeur.autres_situations.en_conge_parental",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts",
+                "operator": "includes",
+                "values": [
+                  "En congé parental"
+                ]
+              }
+            },
+            {
+              "id": "cer_ppae_actif",
+              "label": "Êtes-vous actuellement en CER ou en PPAE ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "demandeur.autres_situations.en_cer_ou_ppae",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts",
+                "operator": "includes",
+                "values": [
+                  "En CER ou en PPAE"
+                ]
+              }
+            },
+            {
+              "id": "regime_alsace_moselle",
+              "label": "Êtes-vous affilié au régime Alsace Moselle ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "demandeur.autres_situations.regime_alsace_moselle",
+              "openfisca": {
+                "entity": "individu",
+                "variable": "salarie_regime_alsace_moselle"
+              },
+              "visibleIf": {
+                "questionId": "situation_statuts",
+                "operator": "includes",
+                "values": [
+                  "Régime Alsace Moselle"
+                ]
+              }
+            }
+          ],
+          "next": "situation_statuts_conjoint"
+        },
+
+        {
+          "id": "situation_statuts_conjoint",
+          "label": "Pour votre conjoint, dans quelles situations se trouve-t-il actuellement ? (plusieurs choix possibles)",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "En congé parental",
+            "Demandeur d'emploi",
+            "En reprise d'activité",
+            "En CER ou en PPAE",
+            "Journaliste, assistant maternel ou familial",
+            "Étudiant",
+            "En situation de handicap",
+            "Inapte au travail",
+            "En situation d'invalidité",
+            "Régime Alsace Moselle"
+          ],
+          "visibleIf": {
+            "questionId": "situation_familiale",
+            "operator": "in",
+            "values": [
+              "Pacsé(e)",
+              "Marié(e)"
+            ]
+          },
+          "internalKey": "conjoint.situations",
+          "openfisca": null,
+          "next": "conjoint_demandeur_emploi_bloc"
+        },
+        {
+          "id": "conjoint_demandeur_emploi_bloc",
+          "label": "Informations si votre conjoint est demandeur d'emploi",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts_conjoint",
+            "operator": "includes",
+            "values": [
+              "Demandeur d'emploi"
+            ]
+          },
+          "internalKey": "conjoint.demandeur_emploi",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "conjoint_dem_emploi_date_fin_dernier_contrat",
+              "label": "Date de fin de son dernier contrat de travail (laisser vide si aucun contrat)",
+              "type": "date",
+              "required": false,
+              "internalKey": "conjoint.demandeur_emploi.date_fin_dernier_contrat",
+              "openfisca": null
+            },
+            {
+              "id": "conjoint_dem_emploi_travaille_5_ans_10_ans",
+              "label": "A-t-il/elle travaillé au moins 5 ans entre décembre 2013 et décembre 2023 ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "conjoint.demandeur_emploi.a_travaille_5_ans_10_ans",
+              "openfisca": null
+            },
+            {
+              "id": "conjoint_dem_emploi_date_debut_indemnisation_chomage",
+              "label": "Date de début d'indemnisation chômage (laisser vide si votre conjoint ne perçoit pas d'allocation chômage)",
+              "type": "date",
+              "required": false,
+              "internalKey": "conjoint.demandeur_emploi.date_debut_indemnisation_chomage",
+              "openfisca": {
+                "entity": "individu",
+                "variable": "date_debut_chomage"
+              }
+            }
+          ],
+          "next": "conjoint_reprise_activite_bloc"
+        },
+        {
+          "id": "conjoint_reprise_activite_bloc",
+          "label": "Informations si votre conjoint est en reprise d'activité",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts_conjoint",
+            "operator": "includes",
+            "values": [
+              "En reprise d'activité"
+            ]
+          },
+          "internalKey": "conjoint.reprise_activite",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "conjoint_reprise_type",
+              "label": "Votre conjoint reprend son activité en :",
+              "type": "select",
+              "required": true,
+              "options": [
+                "Formation",
+                "CDD",
+                "CDI",
+                "Création ou reprise d'entreprise"
+              ],
+              "internalKey": "conjoint.reprise_activite.type",
+              "openfisca": null
+            },
+            {
+              "id": "conjoint_reprise_duree_formation",
+              "label": "Durée de la formation (en mois)",
+              "type": "number",
+              "required": false,
+              "min": 0,
+              "visibleIf": {
+                "questionId": "conjoint_reprise_type",
+                "operator": "equals",
+                "values": [
+                  "Formation"
+                ]
+              },
+              "internalKey": "conjoint.reprise_activite.duree_formation_mois",
+              "openfisca": null
+            },
+            {
+              "id": "conjoint_reprise_duree_cdd",
+              "label": "Durée du CDD (en mois)",
+              "type": "number",
+              "required": false,
+              "min": 0,
+              "visibleIf": {
+                "questionId": "conjoint_reprise_type",
+                "operator": "equals",
+                "values": [
+                  "CDD"
+                ]
+              },
+              "internalKey": "conjoint.reprise_activite.duree_cdd_mois",
+              "openfisca": null
+            },
+            {
+              "id": "conjoint_reprise_cdi_temps_travail",
+              "label": "Durée de travail pour son CDI :",
+              "type": "select",
+              "required": false,
+              "options": [
+                "Temps plein",
+                "Temps partiel d'au moins 15h par semaine"
+              ],
+              "visibleIf": {
+                "questionId": "conjoint_reprise_type",
+                "operator": "equals",
+                "values": [
+                  "CDI"
+                ]
+              },
+              "internalKey": "conjoint.reprise_activite.cdi_temps_travail",
+              "openfisca": null
+            }
+          ],
+          "next": "conjoint_journaliste_assistant_bloc"
+        },
+        {
+          "id": "conjoint_journaliste_assistant_bloc",
+          "label": "Informations si votre conjoint est journaliste, assistant maternel ou familial",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts_conjoint",
+            "operator": "includes",
+            "values": [
+              "Journaliste, assistant maternel ou familial"
+            ]
+          },
+          "internalKey": "conjoint.journaliste_ou_assistant",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "conjoint_journaliste_assistant_type",
+              "label": "Votre conjoint exerce en tant que :",
+              "type": "select",
+              "required": true,
+              "options": [
+                "Journaliste",
+                "Assistant maternel",
+                "Assistant familial"
+              ],
+              "internalKey": "conjoint.journaliste_ou_assistant.type",
+              "openfisca": null
+            },
+            {
+              "id": "conjoint_journaliste_assistant_nb_mois",
+              "label": "Nombre de mois où votre conjoint a exercé cette activité depuis septembre 2024",
+              "type": "number",
+              "required": false,
+              "min": 0,
+              "internalKey": "conjoint.journaliste_ou_assistant.nb_mois_depuis_2024_09",
+              "openfisca": null
+            }
+          ],
+          "next": "conjoint_etudiant_bloc"
+        },
+        {
+          "id": "conjoint_etudiant_bloc",
+          "label": "Informations si votre conjoint est étudiant",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts_conjoint",
+            "operator": "includes",
+            "values": [
+              "Étudiant"
+            ]
+          },
+          "internalKey": "conjoint.etudiant",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "etudiant"
+          },
+          "questions": [
+            {
+              "id": "conjoint_etudiant_boursier",
+              "label": "Votre conjoint est-il boursier ?",
+              "type": "boolean",
+              "required": true,
+              "internalKey": "conjoint.etudiant.boursier",
+              "openfisca": null
+            }
+          ],
+          "next": "conjoint_handicap_bloc"
+        },
+        {
+          "id": "conjoint_handicap_bloc",
+          "label": "Informations si votre conjoint est en situation de handicap",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts_conjoint",
+            "operator": "includes",
+            "values": [
+              "En situation de handicap"
+            ]
+          },
+          "internalKey": "conjoint.handicap",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "handicap"
+          },
+          "questions": [
+            {
+              "id": "conjoint_handicap_taux",
+              "label": "Quel est le taux d'incapacité de votre conjoint ?",
+              "type": "select",
+              "required": true,
+              "options": [
+                "Moins de 50%",
+                "Entre 50% et 80%",
+                "Plus de 80%"
+              ],
+              "internalKey": "conjoint.handicap.taux_incapacite",
+              "openfisca": null
+            }
+          ],
+          "next": "conjoint_inapte_invalidite_bloc"
+        },
+        {
+          "id": "conjoint_inapte_invalidite_bloc",
+          "label": "Inaptitude au travail ou invalidité de votre conjoint",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts_conjoint",
+            "operator": "includesAny",
+            "values": [
+              "Inapte au travail",
+              "En situation d'invalidité"
+            ]
+          },
+          "internalKey": "conjoint.inaptitude_ou_invalidite",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "invalidite"
+          },
+          "questions": [
+            {
+              "id": "conjoint_inapte_au_travail",
+              "label": "Votre conjoint est-il reconnu inapte au travail ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "conjoint.inaptitude_ou_invalidite.inapte_au_travail",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts_conjoint",
+                "operator": "includes",
+                "values": [
+                  "Inapte au travail"
+                ]
+              }
+            },
+            {
+              "id": "conjoint_en_invalidite",
+              "label": "Votre conjoint est-il en situation d'invalidité reconnue ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "conjoint.inaptitude_ou_invalidite.en_invalidite",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts_conjoint",
+                "operator": "includes",
+                "values": [
+                  "En situation d'invalidité"
+                ]
+              }
+            }
+          ],
+          "next": "conjoint_autres_situations_bloc"
+        },
+        {
+          "id": "conjoint_autres_situations_bloc",
+          "label": "Autres situations particulières de votre conjoint",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "situation_statuts_conjoint",
+            "operator": "includesAny",
+            "values": [
+              "En congé parental",
+              "En CER ou en PPAE",
+              "Régime Alsace Moselle"
+            ]
+          },
+          "internalKey": "conjoint.autres_situations",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "conjoint_conge_parental_actif",
+              "label": "Votre conjoint est-il actuellement en congé parental ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "conjoint.autres_situations.en_conge_parental",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts_conjoint",
+                "operator": "includes",
+                "values": [
+                  "En congé parental"
+                ]
+              }
+            },
+            {
+              "id": "conjoint_cer_ppae_actif",
+              "label": "Votre conjoint est-il actuellement en CER ou en PPAE ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "conjoint.autres_situations.en_cer_ou_ppae",
+              "openfisca": null,
+              "visibleIf": {
+                "questionId": "situation_statuts_conjoint",
+                "operator": "includes",
+                "values": [
+                  "En CER ou en PPAE"
+                ]
+              }
+            },
+            {
+              "id": "conjoint_regime_alsace_moselle",
+              "label": "Votre conjoint est-il affilié au régime Alsace Moselle ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "conjoint.autres_situations.regime_alsace_moselle",
+              "openfisca": {
+                "entity": "individu",
+                "variable": "salarie_regime_alsace_moselle"
+              },
+              "visibleIf": {
+                "questionId": "situation_statuts_conjoint",
+                "operator": "includes",
+                "values": [
+                  "Régime Alsace Moselle"
+                ]
+              }
+            }
+          ],
+         "next": "logement_code_postal"
+        }
+
+      ]
+    }
+  ,
+  
+{
+  "id": "logement",
+  "title": "Votre logement",
+  "questions": [
+    {
+      "id": "logement_code_postal",
+      "label": "Quel est le code postal de votre résidence principale ?",
+      "type": "text",
+      "required": true,
+      "validation": {
+        "pattern": "^[0-9]{5}$",
+        "message": "Veuillez saisir un code postal à 5 chiffres"
+      },
+      "internalKey": "menage.code_postal",
+      "openfisca": null,
+      "next": "logement_commune"
+    },
+    {
+      "id": "logement_commune",
+      "label": "Quelle est votre commune de résidence principale ?",
+      "type": "text",
+      "required": true,
+      "internalKey": "menage.commune",
+      "openfisca": null,
+      "next": "logement_statut_occupation"
+    },
+    {
+      "id": "logement_statut_occupation",
+      "label": "Vous êtes actuellement :",
+      "type": "select",
+      "required": true,
+      "options": [
+        "locataire",
+        "propriétaire",
+        "autre"
+      ],
+      "internalKey": "menage.statut_occupation",
+      "openfisca": {
+        "entity": "menage",
+        "variable": "statut_occupation_logement"
+      },
+      "nextIf": [
+        { "ifValueIs": "locataire", "goTo": "locataire_bloc" },
+        { "ifValueIs": "propriétaire", "goTo": "proprietaire_bloc" },
+        { "ifValueIs": "autre", "goTo": "autre_bloc" }
+      ]
+    },
+
+
+    {
+      "id": "locataire_bloc",
+      "label": "Informations sur votre logement locatif",
+      "type": "group",
+      "visibleIf": {
+        "questionId": "logement_statut_occupation",
+        "operator": "equals",
+        "values": ["locataire"]
+      },
+      "internalKey": "menage.locataire",
+      "openfisca": null,
+      "questions": [
+        {
+          "id": "logement_conventionne",
+          "label": "Votre logement est :",
+          "type": "select",
+          "required": true,
+          "options": [
+            "conventionné",
+            "non conventionné",
+            "je ne sais pas"
+          ],
+          "internalKey": "menage.logement_conventionne",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "loyer_conventionne"
+          }
+        },
+        {
+          "id": "logement_colocation",
+          "label": "Êtes-vous en colocation ?",
+          "type": "boolean",
+          "required": true,
+          "internalKey": "menage.colocation",
+          "openfisca": null
+        },
+        {
+          "id": "logement_chambre",
+          "label": "Il s'agit d'une chambre ?",
+          "type": "boolean",
+          "required": true,
+          "internalKey": "menage.chambre",
+          "openfisca": null
+        },
+        {
+          "id": "logement_type",
+          "label": "Votre logement est :",
+          "type": "select",
+          "required": true,
+          "options": [
+            "non meublé",
+            "meublé/hôtel",
+            "foyer/résidence/EHPAD ou autres structures assimilées",
+            "logement CROUS"
+          ],
+          "internalKey": "menage.type_logement",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "type_logement"
+          }
+        },
+        {
+          "id": "logement_lien_proprietaire",
+          "label": "Avez-vous un lien de parenté avec le propriétaire ?",
+          "type": "boolean",
+          "required": true,
+          "internalKey": "menage.lien_proprietaire",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "lien_familial_avec_proprietaire"
+          }
+        },
+        {
+          "id": "logement_loyer_mensuel",
+          "label": "Quel est votre loyer mensuel (hors charges) ?",
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "menage.loyer_hors_charges",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "loyer"
+          }
+        },
+        {
+          "id": "logement_charges_mensuelles",
+          "label": "Montant des charges locatives mensuelles :",
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "menage.charges_locatives",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "charges"
+          }
+        }
+      ],
+     "next": "ressources_rfr_2023"
+
+    },
+
+    
+    {
+      "id": "proprietaire_bloc",
+      "label": "Informations sur votre logement en propriété",
+      "type": "group",
+      "visibleIf": {
+        "questionId": "logement_statut_occupation",
+        "operator": "equals",
+        "values": ["propriétaire"]
+      },
+      "internalKey": "menage.proprietaire",
+      "openfisca": null,
+      "questions": [
+        {
+          "id": "proprio_primo_accedant",
+          "label": "Êtes-vous primo-accédant ?",
+          "type": "boolean",
+          "required": true,
+          "internalKey": "menage.proprietaire.primo_accedant",
+          "openfisca": null
+        },
+        {
+          "id": "proprio_pret_logement",
+          "label": "Avez-vous contracté un prêt pour l'acquisition ou les travaux de votre logement ?",
+          "type": "boolean",
+          "required": true,
+          "internalKey": "menage.proprietaire.pret_logement",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "menage_a_un_pret"
+          }
+        },
+        {
+          "id": "proprio_bloc_pret",
+          "label": "Détails du prêt immobilier",
+          "type": "group",
+          "visibleIf": {
+            "questionId": "proprio_pret_logement",
+            "operator": "equals",
+            "values": [true]
+          },
+          "questions": [
+            {
+              "id": "proprio_date_pret",
+              "label": "Date de contraction de votre prêt :",
+              "type": "date",
+              "required": false,
+              "internalKey": "menage.proprietaire.date_pret",
+              "openfisca": null
+            },
+            {
+              "id": "proprio_montant_mensualites",
+              "label": "Montant des mensualités de votre prêt (€) :",
+              "type": "number",
+              "required": false,
+              "min": 0,
+              "unit": "€",
+              "internalKey": "menage.proprietaire.montant_mensualites",
+              "openfisca": null
+            }
+          ]
+        },
+        {
+          "id": "proprio_type_logement",
+          "label": "Votre logement est :",
+          "type": "select",
+          "required": true,
+          "options": ["neuf", "ancien"],
+          "internalKey": "menage.proprietaire.type_logement",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "logement_neuf"
+          }
+        }
+      ],
+    "next": "ressources_rfr_2023"
+
+    },
+
+
+    {
+      "id": "autre_bloc",
+      "label": "Autre type de logement",
+      "type": "group",
+      "visibleIf": {
+        "questionId": "logement_statut_occupation",
+        "operator": "equals",
+        "values": ["autre"]
+      },
+      "internalKey": "menage.autre_logement",
+      "openfisca": null,
+      "questions": [
+        {
+          "id": "logement_autre_type",
+          "label": "Vous êtes :",
+          "type": "select",
+          "required": true,
+          "options": [
+            "hébergé chez un particulier ou en logement de fonction",
+            "sans domicile stable ou domiciliation administrative"
+          ],
+          "internalKey": "menage.autre_logement.type",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "heberge"
+          }
+        },
+        {
+          "id": "logement_participation_frais",
+          "label": "Participez-vous aux frais du logement ?",
+          "type": "boolean",
+          "required": false,
+          "internalKey": "menage.autre_logement.participation_frais",
+          "openfisca": {
+            "entity": "menage",
+            "variable": "participe_frais_logement"
+          }
+        }
+      ],
+      "next": "ressources_rfr_2023"
+
+    }
+  ]
+},
+{
+  "id": "ressources",
+  "title": "Vos ressources",
+  "questions": [
+    {
+      "id": "ressources_rfr_2023",
+      "label": "Quel est le revenu fiscal de référence 2023 de votre foyer ? (indiqué sur votre avis d'imposition 2024)",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "unit": "€",
+      "internalKey": "foyer_fiscal.rfr_2023",
+      "openfisca": {
+        "entity": "foyer_fiscal",
+        "variable": "rfr"
+      },
+      "next": "ressources_demandeur_bloc"
+    },
+    {
+      "id": "ressources_demandeur_bloc",
+      "label": "Ressources du demandeur sur les 12 derniers mois",
+      "type": "group",
+      "internalKey": "demandeur.ressources",
+      "openfisca": null,
+      "questions": [
+        {
+          "id": "dem_chomage_mensuel",
+          "label": "Montant mensuel moyen de vos indemnités chômage",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.chomage.mensuel",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "chomage_net"
+          }
+        },
+        {
+          "id": "dem_chomage_montant_2023",
+          "label": "Montant total de vos indemnités chômage pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.chomage.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "dem_revenus_activite_types",
+          "label": "Quels types de revenus du travail avez-vous perçus ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "salarié",
+            "profession libérale, entrepreneur",
+            "responsable d'exploitation agricole",
+            "micro-entrepreneur",
+            "auto-entrepreneur",
+            "apprenti",
+            "stagiaire hors formation professionnelle",
+            "stagiaire de la formation professionnelle",
+            "boursier de l'enseignement supérieur",
+            "boursier de recherche",
+            "salarié en chômage partiel ou technique",
+            "demandeur d'emploi indemnisé",
+            "bénéficiaire de la prime d'activité",
+            "bénéficiaire de l'allocation de sécurisation professionnelle",
+            "bénéficiaire d'une indemnité de licenciement, rupture, fin de CDD, congés payés",
+            "bénéficiaire d'une prime forfaitaire mensuelle pour la reprise d'activité",
+            "bénéficiaire de l'Aide départementale Financière d'Insertion Personnalisée (AdéFIP)",
+            "pré-retraité"
+          ],
+          "internalKey": "demandeur.ressources.revenus_activite.types",
+          "openfisca": null
+        },
+        {
+          "id": "dem_revenus_activite_mensuel",
+          "label": "Montant mensuel total de vos revenus d'activité (tous types confondus)",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.revenus_activite.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "dem_revenus_activite_montant_2023",
+          "label": "Montant total de vos revenus d'activité pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.revenus_activite.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "dem_indemnites_types",
+          "label": "Quelles indemnités avez-vous perçues ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "indemnités journalières maladie",
+            "indemnités journalières maternité, paternité ou adoption",
+            "indemnités maladie professionnelle ou accident du travail",
+            "indemnités de volontariat",
+            "indemnités journalières travailleur indépendant et exploitant agricole",
+            "dédommagement aux victimes de l'amiante"
+          ],
+          "internalKey": "demandeur.ressources.indemnites.types",
+          "openfisca": null
+        },
+        {
+          "id": "dem_indemnites_mensuel",
+          "label": "Montant mensuel total de vos indemnités",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.indemnites.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "dem_indemnites_montant_2023",
+          "label": "Montant total de vos indemnités pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.indemnites.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "dem_pensions_rentes_types",
+          "label": "Quelles pensions ou rentes avez-vous perçues ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "pension d'invalidité",
+            "pension (retraite, réversion, de combattant) ou rente",
+            "rente accident du travail, ATEXA"
+          ],
+          "internalKey": "demandeur.ressources.pensions_rentes.types",
+          "openfisca": null
+        },
+        {
+          "id": "dem_pensions_rentes_mensuel",
+          "label": "Montant mensuel total de vos pensions ou rentes",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.pensions_rentes.mensuel",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "pensions_nettes"
+          }
+        },
+        {
+          "id": "dem_pensions_rentes_montant_2023",
+          "label": "Montant total de vos pensions ou rentes pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.pensions_rentes.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "dem_pensions_alimentaires_types",
+          "label": "Quelles pensions alimentaires, charges ou frais sont concernés ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "pensions alimentaires reçues",
+            "pensions alimentaires versées",
+            "prestations compensatoires reçues",
+            "autres charges à déduire du revenu",
+            "frais déductibles"
+          ],
+          "internalKey": "demandeur.ressources.pensions_alimentaires.types",
+          "openfisca": null
+        },
+        {
+          "id": "dem_pensions_alimentaires_mensuel",
+          "label": "Montant mensuel total des pensions alimentaires, charges et frais",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.pensions_alimentaires.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "dem_pensions_alimentaires_montant_2023",
+          "label": "Montant total des pensions alimentaires, charges et frais pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.pensions_alimentaires.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "dem_allocations_types",
+          "label": "Quelles allocations avez-vous perçues ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "allocations familiales",
+            "complément familial",
+            "allocation de soutien familial",
+            "complément de libre choix mode de garde (CMG)",
+            "prestation d'accueil du jeune enfant (PAJE) - Allocation de base",
+            "prestation partagée d'éducation de l'enfant (PREPARE)",
+            "allocations logement",
+            "allocation d'éducation de l'enfant handicapé (AEEH)",
+            "allocation adulte handicapé (AAH)",
+            "complément de ressources (CR)",
+            "majoration pour la vie autonome (MVA)",
+            "prestation de compensation du handicap (PCH)",
+            "revenu de solidarité active (RSA)",
+            "allocation de solidarité aux personnes âgées (ASPA)",
+            "allocation personnalisée d'autonomie à domicile (APA)",
+            "allocation supplémentaire d'invalidité (ASI)"
+          ],
+          "internalKey": "demandeur.ressources.allocations.types",
+          "openfisca": null
+        },
+        {
+          "id": "dem_allocations_mensuel",
+          "label": "Montant mensuel total de vos allocations",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.allocations.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "dem_allocations_montant_2023",
+          "label": "Montant total de vos allocations pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.allocations.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "dem_revenus_patrimoniaux_types",
+          "label": "Quels revenus patrimoniaux ou gains avez-vous perçus ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "revenus locatifs (terrains, appartements, SCI, ...)",
+            "revenus du capital (intérêts, plus-values, dividendes, ...)",
+            "montant des plus-values utilisé pour le montant total de revenus du capital",
+            "gains exceptionnels (dons, gains aux jeux, héritage)"
+          ],
+          "internalKey": "demandeur.ressources.revenus_patrimoniaux.types",
+          "openfisca": null
+        },
+        {
+          "id": "dem_revenus_patrimoniaux_mensuel",
+          "label": "Montant mensuel moyen de vos revenus patrimoniaux et gains",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.revenus_patrimoniaux.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "dem_revenus_patrimoniaux_montant_2023",
+          "label": "Montant total de vos revenus patrimoniaux et gains pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "demandeur.ressources.revenus_patrimoniaux.annee_2023",
+          "openfisca": null
+        }
+      ],
+      "next": "ressources_enfants_bloc"
+    },
+
+    {
+      "id": "ressources_enfants_bloc",
+      "label": "Ressources des enfants de 16 ans ou plus",
+      "type": "group",
+      "internalKey": "enfants.ressources",
+      "openfisca": null,
+      "questions": [
+        {
+          "id": "ressources_enfants_loop",
+          "label": "Ressources de chaque enfant de 16 ans ou plus",
+          "type": "group",
+          "repeat": {
+            "fromQuestionId": "nombre_enfants",
+            "minAgeYears": 16
+          },
+          "internalKey": "enfant_{{index}}.ressources",
+          "openfisca": null,
+          "questions": [
+            {
+              "id": "enfant_a_ressources",
+              "label": "Cet enfant ({{index}}) perçoit-il des ressources personnelles ?",
+              "type": "boolean",
+              "required": false,
+              "internalKey": "enfant_{{index}}.a_ressources",
+              "openfisca": null
+            },
+            {
+              "id": "enfant_ressources_details",
+              "label": "Détails des ressources de cet enfant",
+              "type": "group",
+              "visibleIf": {
+                "questionId": "enfant_a_ressources",
+                "operator": "equals",
+                "values": [true]
+              },
+              "internalKey": "enfant_{{index}}.ressources_details",
+              "openfisca": null,
+              "questions": [
+                {
+                  "id": "enfant_revenus_activite_mensuel",
+                  "label": "Montant mensuel des revenus d'activité de cet enfant (salaires, apprentissage, etc.)",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.revenus_activite.mensuel",
+                  "openfisca": null
+                },
+                {
+                  "id": "enfant_revenus_activite_annee_2023",
+                  "label": "Montant total des revenus d'activité de cet enfant pour l'année 2023",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.revenus_activite.annee_2023",
+                  "openfisca": null
+                },
+                {
+                  "id": "enfant_chomage_mensuel",
+                  "label": "Montant mensuel des indemnités chômage de cet enfant",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.chomage.mensuel",
+                  "openfisca": {
+                    "entity": "individu",
+                    "variable": "chomage_net"
+                  }
+                },
+                {
+                  "id": "enfant_chomage_annee_2023",
+                  "label": "Montant total des indemnités chômage de cet enfant pour l'année 2023",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.chomage.annee_2023",
+                  "openfisca": null
+                },
+                {
+                  "id": "enfant_pensions_rentes_mensuel",
+                  "label": "Montant mensuel des pensions ou rentes perçues par cet enfant",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.pensions_rentes.mensuel",
+                  "openfisca": {
+                    "entity": "individu",
+                    "variable": "pensions_nettes"
+                  }
+                },
+                {
+                  "id": "enfant_pensions_rentes_annee_2023",
+                  "label": "Montant total des pensions ou rentes de cet enfant pour l'année 2023",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.pensions_rentes.annee_2023",
+                  "openfisca": null
+                },
+                {
+                  "id": "enfant_allocations_mensuel",
+                  "label": "Montant mensuel des allocations perçues directement par cet enfant (bourse, AAH, etc.)",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.allocations.mensuel",
+                  "openfisca": null
+                },
+                {
+                  "id": "enfant_allocations_annee_2023",
+                  "label": "Montant total des allocations perçues par cet enfant pour l'année 2023",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.allocations.annee_2023",
+                  "openfisca": null
+                },
+                {
+                  "id": "enfant_revenus_patrimoniaux_mensuel",
+                  "label": "Montant mensuel des revenus patrimoniaux ou gains (locatifs, capital, héritage, etc.) de cet enfant",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.revenus_patrimoniaux.mensuel",
+                  "openfisca": null
+                },
+                {
+                  "id": "enfant_revenus_patrimoniaux_annee_2023",
+                  "label": "Montant total des revenus patrimoniaux et gains de cet enfant pour l'année 2023",
+                  "type": "number",
+                  "required": false,
+                  "min": 0,
+                  "unit": "€",
+                  "internalKey": "enfant_{{index}}.revenus_patrimoniaux.annee_2023",
+                  "openfisca": null
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "next": "ressources_conjoint_bloc"
+    },
+
+
+
+
+    {
+      "id": "ressources_conjoint_bloc",
+      "label": "Ressources du conjoint sur les 12 derniers mois",
+      "type": "group",
+      "visibleIf": {
+        "questionId": "situation_familiale",
+        "operator": "in",
+        "values": [
+          "Pacsé(e)",
+          "Marié(e)"
+        ]
+      },
+      "internalKey": "conjoint.ressources",
+      "openfisca": null,
+      "questions": [
+        {
+          "id": "conjoint_chomage_mensuel",
+          "label": "Montant mensuel moyen des indemnités chômage de votre conjoint",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.chomage.mensuel",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "chomage_net"
+          }
+        },
+        {
+          "id": "conjoint_chomage_montant_2023",
+          "label": "Montant total des indemnités chômage de votre conjoint pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.chomage.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_revenus_activite_types",
+          "label": "Quels types de revenus du travail votre conjoint a-t-il perçus ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "salarié",
+            "profession libérale, entrepreneur",
+            "responsable d'exploitation agricole",
+            "micro-entrepreneur",
+            "auto-entrepreneur",
+            "apprenti",
+            "stagiaire hors formation professionnelle",
+            "stagiaire de la formation professionnelle",
+            "boursier de l'enseignement supérieur",
+            "boursier de recherche",
+            "salarié en chômage partiel ou technique",
+            "demandeur d'emploi indemnisé",
+            "bénéficiaire de la prime d'activité",
+            "bénéficiaire de l'allocation de sécurisation professionnelle",
+            "bénéficiaire d'une indemnité de licenciement, rupture, fin de CDD, congés payés",
+            "bénéficiaire d'une prime forfaitaire mensuelle pour la reprise d'activité",
+            "bénéficiaire de l'Aide départementale Financière d'Insertion Personnalisée (AdéFIP)",
+            "pré-retraité"
+          ],
+          "internalKey": "conjoint.ressources.revenus_activite.types",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_revenus_activite_mensuel",
+          "label": "Montant mensuel total des revenus d'activité de votre conjoint",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.revenus_activite.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_revenus_activite_montant_2023",
+          "label": "Montant total des revenus d'activité de votre conjoint pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.revenus_activite.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_indemnites_types",
+          "label": "Quelles indemnités votre conjoint a-t-il perçues ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "indemnités journalières maladie",
+            "indemnités journalières maternité, paternité ou adoption",
+            "indemnités maladie professionnelle ou accident du travail",
+            "indemnités de volontariat",
+            "indemnités journalières travailleur indépendant et exploitant agricole",
+            "dédommagement aux victimes de l'amiante"
+          ],
+          "internalKey": "conjoint.ressources.indemnites.types",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_indemnites_mensuel",
+          "label": "Montant mensuel total des indemnités de votre conjoint",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.indemnites.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_indemnites_montant_2023",
+          "label": "Montant total des indemnités de votre conjoint pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.indemnites.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_pensions_rentes_types",
+          "label": "Quelles pensions ou rentes votre conjoint a-t-il perçues ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "pension d'invalidité",
+            "pension (retraite, réversion, de combattant) ou rente",
+            "rente accident du travail, ATEXA"
+          ],
+          "internalKey": "conjoint.ressources.pensions_rentes.types",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_pensions_rentes_mensuel",
+          "label": "Montant mensuel total des pensions ou rentes de votre conjoint",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.pensions_rentes.mensuel",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "pensions_nettes"
+          }
+        },
+        {
+          "id": "conjoint_pensions_rentes_montant_2023",
+          "label": "Montant total des pensions ou rentes de votre conjoint pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.pensions_rentes.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_pensions_alimentaires_types",
+          "label": "Quelles pensions alimentaires, charges ou frais concernent votre conjoint ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "pensions alimentaires reçues",
+            "pensions alimentaires versées",
+            "prestations compensatoires reçues",
+            "autres charges à déduire du revenu",
+            "frais déductibles"
+          ],
+          "internalKey": "conjoint.ressources.pensions_alimentaires.types",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_pensions_alimentaires_mensuel",
+          "label": "Montant mensuel total des pensions alimentaires, charges et frais de votre conjoint",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.pensions_alimentaires.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_pensions_alimentaires_montant_2023",
+          "label": "Montant total des pensions alimentaires, charges et frais de votre conjoint pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.pensions_alimentaires.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_allocations_types",
+          "label": "Quelles allocations votre conjoint a-t-il perçues ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "allocations familiales",
+            "complément familial",
+            "allocation de soutien familial",
+            "complément de libre choix mode de garde (CMG)",
+            "prestation d'accueil du jeune enfant (PAJE) - Allocation de base",
+            "prestation partagée d'éducation de l'enfant (PREPARE)",
+            "allocations logement",
+            "allocation d'éducation de l'enfant handicapé (AEEH)",
+            "allocation adulte handicapé (AAH)",
+            "complément de ressources (CR)",
+            "majoration pour la vie autonome (MVA)",
+            "prestation de compensation du handicap (PCH)",
+            "revenu de solidarité active (RSA)",
+            "allocation de solidarité aux personnes âgées (ASPA)",
+            "allocation personnalisée d'autonomie à domicile (APA)",
+            "allocation supplémentaire d'invalidité (ASI)"
+          ],
+          "internalKey": "conjoint.ressources.allocations.types",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_allocations_mensuel",
+          "label": "Montant mensuel total des allocations de votre conjoint",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.allocations.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_allocations_montant_2023",
+          "label": "Montant total des allocations de votre conjoint pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.allocations.annee_2023",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_revenus_patrimoniaux_types",
+          "label": "Quels revenus patrimoniaux ou gains votre conjoint a-t-il perçus ?",
+          "type": "multi_select",
+          "required": false,
+          "options": [
+            "revenus locatifs (terrains, appartements, SCI, ...)",
+            "revenus du capital (intérêts, plus-values, dividendes, ...)",
+            "montant des plus-values utilisé pour le montant total de revenus du capital",
+            "gains exceptionnels (dons, gains aux jeux, héritage)"
+          ],
+          "internalKey": "conjoint.ressources.revenus_patrimoniaux.types",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_revenus_patrimoniaux_mensuel",
+          "label": "Montant mensuel moyen des revenus patrimoniaux et gains de votre conjoint",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.revenus_patrimoniaux.mensuel",
+          "openfisca": null
+        },
+        {
+          "id": "conjoint_revenus_patrimoniaux_montant_2023",
+          "label": "Montant total des revenus patrimoniaux et gains de votre conjoint pour l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "conjoint.ressources.revenus_patrimoniaux.annee_2023",
+          "openfisca": null
+        }
+      ],
+      "next": "patrimoine_epargne_non_imposable"
+	  
+	   }
+  ]
+},
+	  
+	 {
+  "id": "patrimoine",
+  "title": "Votre patrimoine",
+  "questions": [
+    {
+      "id": "patrimoine_epargne_non_imposable",
+      "label": "Total des revenus d'épargne non imposables (Assurance Vie, CEL, Livret A, LDD, LEP, Livret Jeune, PEA, Plan d'Épargne d'Entreprise, PEL, PEP) pour l'année 2023",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "unit": "€",
+      "internalKey": "patrimoine.epargne.non_imposable_2023",
+      "openfisca": null,
+      "next": "patrimoine_epargne_imposable"
+    },
+    {
+      "id": "patrimoine_epargne_imposable",
+      "label": "Total des revenus d'épargne imposables (actions, comptes à terme, FCP, obligations, parts sociales, SICAV, etc.) pour l'année 2023",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "unit": "€",
+      "internalKey": "patrimoine.epargne.imposable_2023",
+      "openfisca": null,
+      "next": "patrimoine_immobilier"
+    },
+    {
+      "id": "patrimoine_immobilier",
+      "label": "Avez-vous du patrimoine immobilier ?",
+      "type": "boolean",
+      "required": false,
+      "internalKey": "patrimoine.immobilier.a_patrimoine_immobilier",
+      "openfisca": null
+    },
+    {
+      "id": "patrimoine_immobilier_details",
+      "label": "Détails de votre patrimoine immobilier",
+      "type": "group",
+      "internalKey": "patrimoine.immobilier.details",
+      "openfisca": null,
+      "visibleIf": {
+        "questionId": "patrimoine_immobilier",
+        "operator": "equals",
+        "values": [true]
+      },
+      "questions": [
+        {
+          "id": "patrimoine_terrains",
+          "label": "Avez-vous des terrains ?",
+          "type": "boolean",
+          "required": false,
+          "internalKey": "patrimoine.immobilier.terrains.a_terrains",
+          "openfisca": null
+        },
+        {
+          "id": "patrimoine_terrains_non_loues",
+          "label": "Avez-vous des terrains non loués ?",
+          "type": "boolean",
+          "required": false,
+          "internalKey": "patrimoine.immobilier.terrains.non_loues",
+          "openfisca": null,
+          "visibleIf": {
+            "questionId": "patrimoine_terrains",
+            "operator": "equals",
+            "values": [true]
+          }
+        },
+        {
+          "id": "valeur_terrains_non_loues",
+          "label": "Valeur patrimoniale totale de vos terrains non loués",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "patrimoine.immobilier.terrains.non_loues.valeur_patrimoniale_2023",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "valeur_terrains_non_loues"
+          }
+        },
+        {
+          "id": "valeur_locative_terrains_non_loues",
+          "label": "Valeur locative totale de vos terrains non loués (vous pouvez la trouver sur votre avis de taxe foncière ou d'habitation)",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "patrimoine.immobilier.terrains.non_loues.valeur_locative_2023",
+          "openfisca": null
+        },
+        {
+          "id": "patrimoine_appart_immeubles",
+          "label": "Avez-vous des appartements/immeubles ?",
+          "type": "boolean",
+          "required": false,
+          "internalKey": "patrimoine.immobilier.appartements_immeubles.a_biens",
+          "openfisca": null
+        },
+        {
+          "id": "patrimoine_appart_immeubles_non_loues",
+          "label": "Avez-vous des appartements/immeubles non loués (hors résidence principale et bâtiments d'exploitation agricole) ?",
+          "type": "boolean",
+          "required": false,
+          "internalKey": "patrimoine.immobilier.appartements_immeubles.non_loues",
+          "openfisca": null,
+          "visibleIf": {
+            "questionId": "patrimoine_appart_immeubles",
+            "operator": "equals",
+            "values": [true]
+          }
+        },
+        {
+          "id": "valeur_patrimoniale_biens_loues",
+          "label": "Valeur patrimoniale de vos biens loués (immeubles, terrains...)",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "patrimoine.immobilier.biens_loues.valeur_patrimoniale_2023",
+          "openfisca": {
+            "entity": "individu",
+            "variable": "valeur_patrimoine_loue"
+          }
+        },
+        {
+          "id": "revenus_fonciers_2023",
+          "label": "Revenus fonciers imposables de l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "patrimoine.immobilier.revenus_fonciers_2023",
+          "openfisca": {
+            "entity": "foyer_fiscal",
+            "variable": "f4ba"
+          }
+        },
+        {
+          "id": "deficits_fonciers_2023",
+          "label": "Déficits fonciers de l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "patrimoine.immobilier.deficits_fonciers_2023",
+          "openfisca": {
+            "entity": "foyer_fiscal",
+            "variable": "f4bb"
+          }
+        },
+        {
+          "id": "rentes_viageres_onereuses_2023",
+          "label": "Rentes viagères à titre onéreux de l'année 2023",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "unit": "€",
+          "internalKey": "patrimoine.rentes_viageres_onereuses_2023",
+          "openfisca": {
+            "entity": "foyer_fiscal",
+            "variable": "rente_viagere_titre_onereux_net"
+          }
+        }
+      ],
+      "next": "FIN_QUESTIONNAIRE"
+    }
+  ],
+  "endQuestionId": "FIN_QUESTIONNAIRE"
+}
+]
+}
