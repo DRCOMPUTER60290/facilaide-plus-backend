@@ -99,6 +99,59 @@ l’API publique OpenFisca.
 L’API Express est exposée sous `/api`. Les deux points de terminaison principaux
 peuvent être testés dans Postman avec l’en-tête `Content-Type: application/json` :
 
+### Parcours du chatbot questionnaire
+
+Le flux de questions du chatbot est défini dans le fichier racine
+`facilaide_questionnaire.json`. Deux routes permettent aux clients de récupérer
+le questionnaire et de progresser dynamiquement :
+
+1. **Récupérer la structure complète**
+
+   - Méthode : `GET`
+   - URL : `http://localhost:3001/api/chatbot/questionnaire`
+   - Réponse :
+
+     ```json
+     {
+       "meta": { "titre": "…" },
+       "sections": [ { "id": "situation", "questions": [ … ] } ],
+       "startQuestionId": "situation_familiale"
+     }
+     ```
+
+     Les sections et questions correspondent directement au contenu du fichier
+     JSON, ce qui garantit que toute mise à jour du fichier pilote le flux.
+
+2. **Obtenir la prochaine question à poser**
+
+   - Méthode : `POST`
+   - URL : `http://localhost:3001/api/chatbot/next`
+   - Corps (`raw` / JSON) :
+
+     ```json
+     {
+       "answers": {
+         "situation_familiale": "marie"
+       }
+     }
+     ```
+
+   - Réponse :
+
+     ```json
+     {
+       "question": {
+         "id": "conjoint_date_naissance",
+         "label": "Quelle est la date de naissance de votre conjoint ?",
+         "section": { "id": "situation", "title": "Situation familiale" }
+       },
+       "completed": false
+     }
+     ```
+
+   Lorsque toutes les questions requises par la configuration ont une réponse,
+   la route renvoie `{ "question": null, "completed": true }`.
+
 1. **Génération du JSON brut**
 
    - Méthode : `POST`

@@ -3,6 +3,7 @@ import { callOpenAI, describeOpenFiscaResult } from "./openai.js";
 import { callOpenFisca } from "./openfisca.js";
 import { buildOpenFiscaPayload } from "./variables.js";
 import extractAvailableBenefits from "./benefits.js";
+import { getQuestionnaire, getNextQuestion as computeNextQuestion } from "./questionnaire.js";
 
 const DEFAULT_PERSON_LABELS = {
   individu_1: "le demandeur",
@@ -361,6 +362,32 @@ const router = express.Router();
  */
 router.get("/", (req, res) => {
   res.json({ message: "API FacilAide+ OK" });
+});
+
+router.get("/chatbot/questionnaire", (req, res) => {
+  try {
+    const definition = getQuestionnaire();
+    res.json(definition);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post("/chatbot/next", (req, res) => {
+  try {
+    const answers = req.body?.answers;
+
+    if (answers !== undefined && (answers === null || typeof answers !== "object")) {
+      return res
+        .status(400)
+        .json({ error: "Le champ 'answers' doit être un objet lorsqu'il est fourni." });
+    }
+
+    const result = computeNextQuestion(answers || {});
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /**
